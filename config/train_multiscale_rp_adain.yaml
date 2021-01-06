@@ -6,12 +6,12 @@ test_iter: 10000
 
 # optimization options
 max_iter: 1000000             # maximum number of training iterations
-batch_size: 1                 # batch size
+batch_size: 2                 # batch size
 weight_decay: 0.0001          # weight decay
 beta1: 0.5                    # Adam parameter
 beta2: 0.999                  # Adam parameter
 init: orthogonal                 # initialization [gaussian/kaiming/xavier/orthogonal]
-lr: 0.001                     # initial learning rate
+lr: 0.0001                     # initial learning rate
 lr_policy: step               # learning rate scheduler
 step_size: 10000              # how often to decay learning rate
 gamma: 0.5                    # how much to decay learning rate
@@ -25,10 +25,10 @@ mrf_weight: 0                    # loss weight
 vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
-hidden_dim : 2
+hidden_dim : 16
 k: 5
 fusion_block: 5
-network: spade
+network: multi_adain
 spade_block: 5
 spade: true
 spade_norm: instance
@@ -45,9 +45,7 @@ num_workers: 8                                            # number of data loadi
 content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
-output: output/1127_SpadeRPNet_lr1e-3_cw1_sw1
-
+output: output/0106_AdaINRPNet_lr1e-3_cw1_sw1
 
 # dataset options 
-test_dataset: 'paired'
-
+test_dataset: 'photoreal'

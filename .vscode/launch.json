@@ -20,6 +20,29 @@
             "request": "launch",
             "program": "train.py",
             "console": "integratedTerminal"
+        },
+        {
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "3"
+            },
+            "name": "train_multi_adain_rpnet",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "args": ["--config","config/train_multiscale_rp_adain.yaml"],
+            "console": "integratedTerminal"
+        },
+        {
+            
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            },
+            "name": "train_dynamic_sanet",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "args": ["--config","config/train_dynamic_sanet.yaml"],
+            "console": "integratedTerminal"
         }
     ]
 }

@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 import os
 import cv2
+from datasets import *
 
 import torch
 # import torch.backends.cudnn as cudnn
@@ -35,201 +36,35 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 
-def train_transform():
+def train_transform(config):
     transform_list = [
-        transforms.RandomResizedCrop(512),
+        transforms.Resize(size=(config['img_size'],config['img_size'])),
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
 
 
-def test_transfrom():
+def test_transfrom(config):
     transform_list = [
-        # transforms.RandomCrop(256),
-        transforms.CenterCrop(512),
+        transforms.Resize(size=(config['img_size'],config['img_size'])),
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
 
 
-class FlatFolderDataset(data.Dataset):
-    def __init__(self, root, transform, fmt='*/P*', root2=None):
-        super(FlatFolderDataset, self).__init__()
-        self.root = root
-        self.paths = list(Path(self.root).glob(fmt))
-        if root2 is not None:
-            path2 = list(Path(root2).glob('*'))
-            print(path2[0])
-            self.paths.extend(path2)
-        self.transform = transform
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(str(path)).convert('RGB')
-        img = self.transform(img)
-        return img
-
-    def __len__(self):
-        return len(self.paths)
-
-    def name(self):
-        return 'FlatFolderDataset'
-
-
-class Dataset(data.Dataset):
-    def __init__(self, root, transform, fmt='*'):
-        super(Dataset, self).__init__()
-        self.root = root
-        self.paths = list(Path(self.root).glob(fmt))
-        self.transform = transform
-
-    def __getitem__(self, index):
-        path = self.paths[index]
-        img = Image.open(str(path)).convert('RGB')
-        img = self.transform(img)
-        return img
-
-    def __len__(self):
-        return len(self.paths)
-
-    def name(self):
-        return 'FlatFolderDataset'
-
-class CityspacesDataset(data.Dataset):
-    def __init__(self, img_dir,transform, img_size=256):
-        super(CityspacesDataset, self).__init__()
-        self.img_dir = self.img_dir
-        self.img_names = os.listdir(self.img_dir)
-        self.transform = transform
-        self.img_size = 256
-
-        ignore_label = -1
-
-        self.label_mapping = {-1: ignore_label, 0: ignore_label, 
-                              1: ignore_label, 2: ignore_label, 
-                              3: ignore_label, 4: ignore_label, 
-                              5: ignore_label, 6: ignore_label, 
-                              7: 0, 8: 1, 9: ignore_label, 
-                              10: ignore_label, 11: 2, 12: 3, 
-                              13: 4, 14: ignore_label, 15: ignore_label, 
-                              16: ignore_label, 17: 5, 18: ignore_label, 
-                              19: 6, 20: 7, 21: 8, 22: 9, 23: 10, 24: 11,
-                              25: 12, 26: 13, 27: 14, 28: 15, 
-                              29: ignore_label, 30: ignore_label, 
-                              31: 16, 32: 17, 33: 18}
-
-    def __getitem__(self, index):
-        img_path = os.path.join(
-            self.img_dir, self.img_names[index])
-        # img = Image.open(img_path).convert('RGB')
-    
-        img = cv2.imread(img_path)
-
-        content = img[:,:self.img_size,:] 
-        label = img[:,self.img_size: self.img_size * 2, :]
-
-        content = Image.fromarray(cv2.cvtColor(content, cv2.COLOR_BGR2RGB))
-        label = cv2.cvtColor(label, cv2.COLOR_BGR2GRAY)
-        label = self.convert_label(label)
-        label = Image.fromarray(label)
-
-        content = self.transform(content)
-
-        return content, label
-    
-    def convert_label(self, label, inverse=False):
-        temp = label.copy()
-        if inverse:
-            for v, k in self.label_mapping.items():
-                label[temp == k] = v
-        else:
-            for k, v in self.label_mapping.items():
-                label[temp == k] = v
-        return label
-
-    def __len__(self):
-        return len(self.img_names)
-
-    def name(self):
-        return 'PairedDataset'
-    
-
-class PairedDataset(data.Dataset):
-    def __init__(self, root, transform):
-        super(PairedDataset, self).__init__()
-        self.root = root
-        self.content_dir = os.path.join(self.root, 'content')
-        self.style_dir = os.path.join(self.root, 'style')
-
-        self.content_names = os.listdir(self.content_dir)
-        self.style_names = os.listdir(self.style_dir)
-        # self.content_paths = list(Path(self.root).glob('content/*'))
-        # self.style_paths = list(Path(self.root).glob('style/*'))
-        # self.paths = list(zip(self.content_paths, self.style_paths))
-        self.transform = transform
-
-    def __getitem__(self, index):
-
-        content_path = os.path.join(
-            self.content_dir, self.content_names[index])
-
-        style_name = 'tar{}'.format(
-            self.content_names[index].replace('in', ''))
-
-        style_path = os.path.join(self.style_dir, style_name)
-
-        content_img = Image.open(str(content_path)).convert('RGB')
-        style_img = Image.open(str(style_path)).convert('RGB')
-
-        content_img = self.transform(content_img)
-        style_img = self.transform(style_img)
-
-        return content_img, style_img, os.path.splitext(os.path.basename(str(content_path)))[0], os.path.splitext(os.path.basename(str(style_path)))[0]
-
-    def __len__(self):
-        return len(self.content_names)
-
-    def name(self):
-        return 'PairedDataset'
-
-
-def adjust_learning_rate(optimizer, iteration_count):
+def adjust_learning_rate(opt,optimizer, iteration_count):
     """Imitating the original implementation"""
-    lr = opt.lr / (1.0 + opt.lr_decay * iteration_count)
+    lr = opt['lr'] / (1.0 + opt['lr_decay'] * iteration_count)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
 
 
 parser = argparse.ArgumentParser()
 # # Basic options
 parser.add_argument('--config', type=str, default='config/TrainConfig.yaml',
                     help='Config of training RPNet.')
-# parser.add_argument('--content_dir', type=str, required=True,
-# help='Directory path to a batch of content images')
 
-# parser.add_argument('--content_dir_2', type=str, default=None,
-#                     help='Directory path to a batch of content images')
-
-# parser.add_argument('--test_dir', type=str, default=None,
-#                     help='Directory path to pairs of test images.')
-
-# parser.add_argument('--style_dir', type=str, required=True,
-
-#                     help='Directory path to a batch of style images')
-# parser.add_argument('--vgg', type=str, default='models/vgg_normalised.pth')
-
-# # training options
-# parser.add_argument('--output', default='./experiments',
-#                     help='Directory to save the model')
-# parser.add_argument('--lr', type=float, default=1e-4)
-# parser.add_argument('--lr_decay', type=float, default=5e-5)
-# parser.add_argument('--max_iter', type=int, default=160000)
-# parser.add_argument('--batch_size', type=int, default=8)
-# parser.add_argument('--style_weight', type=float, default=10.0)
-# parser.add_argument('--content_weight', type=float, default=1.0)
-# parser.add_argument('--n_threads', type=int, default=16)
-# parser.add_argument('--n_threads', type=int, default=16)
-# parser.add_argument('--save_model_interval', type=int, default=10000)
 args = parser.parse_args()
 with open(args.config) as f:
     opt = yaml.load(f, Loader=yaml.Loader)
@@ -253,23 +88,27 @@ writer = SummaryWriter(log_dir=str(log_dir))
 vgg = net.vgg
 
 vgg.load_state_dict(torch.load(opt['vgg']))
-vgg = nn.Sequential(*list(vgg.children())[:31])
+vgg_relu4_1 = nn.Sequential(*list(vgg.children())[:31])
 
 if opt['network'] == 'adain':
-    network = net.AdaINRPNet(opt, vgg)
+    network = net.AdaINRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'multi_adain':
+    network = net.MultiScaleAdaINRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'sanet':
+    network = net.AdaptiveSAModel(opt, vgg, opt['start_iter'], opt['img_size'])
 elif opt['network'] == 'mrf':
-    network = net.MRFRPNet(opt, vgg)
+    network = net.MRFRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'spade':
-    network = net.SpadeRPNet(opt, vgg)
+    network = net.SpadeRPNet(opt, vgg_relu4_1)
 
 network.train()
 network = network.cuda()
 print(network)
 
-content_tf = train_transform()
-style_tf = train_transform()
+content_tf = train_transform(opt)
+style_tf = train_transform(opt)
 
-test_tf = test_transfrom()
+test_tf = test_transfrom(opt)
 
 # content_dataset = FlatFolderDataset(
 # args.content_dir, content_tf, root2=args.content_dir_2)
@@ -278,7 +117,14 @@ content_dataset = Dataset(
     opt['content_dir'], content_tf)
 style_dataset = Dataset(
     opt['style_dir'], style_tf, fmt='*/*')
-test_dataset = PairedDataset(opt['test_dir'], test_tf)
+
+if opt['test_dataset'] == 'photoreal':
+    test_dataset = PhotorealisticPariedDataset(opt['test_dir'], test_tf)
+elif opt['test_dataset'] == 'fmt':
+    test_dataset = FmtDataset(opt['test_dir'], test_tf)
+elif opt['test_dataset'] == 'paired':
+     test_dataset = PariedDataset(opt['test_dir'], test_tf)
+    
 
 content_iter = iter(data.DataLoader(
     content_dataset, batch_size=opt['batch_size'],
@@ -298,7 +144,7 @@ for i in range(1, opt['max_iter']):
 
     start = time.time()
     optimizer.zero_grad()
-    # adjust_learning_rate(optimizer, iteration_count=i)
+    adjust_learning_rate(opt,optimizer, iteration_count=i)
     content_images = next(content_iter).cuda().detach()
     style_images = next(style_iter).cuda().detach()
     # loss_mrf, loss_c, loss_s = network(content_images, style_images)
@@ -337,5 +183,5 @@ for i in range(1, opt['max_iter']):
 
     if i % opt['snapshot_save_iter'] == 0 or (i + 1) == opt['max_iter']:
         torch.save(network.state_dict(), checkpoint_dir /
-                   f'{i+1}.pth')
+                   f'{i}.pth')
 writer.close()

@@ -182,7 +182,6 @@ class SpadeRPNet(nn.Module):
         self.rp_decoder = SpadeDecoder(
             self.config['ndf'], self.config['spade_norm'], self.decoder_in_dim)
 
-        self.loss_mrf = MRFLoss(self.config['k'])
         self.mse_loss = MSELoss()
 
     # extract relu1_1, relu2_1, relu3_1, relu4_1 from input image
@@ -209,7 +208,7 @@ class SpadeRPNet(nn.Module):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def test(self, content, style):
+    def test(self, content, style, iterations=0):
         with torch.no_grad():
             content_feat = self.rp_content_encoder(content)
             style_feat = self.rp_style_encoder(style)
