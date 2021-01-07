@@ -9,9 +9,9 @@ def cal_affinity_matrix(content_feat, style_feat):
 
     assert content_feat.size() == style_feat.size()
     b,c,h,w = content_feat.size()
-    content_feat = functional.normalize(content_feat.view(b,c,h*w),dim=1)
-    style_feat = functional.normalize(style_feat.view(b,c,h*w),dim=1)
-    return torch.bmm(content_feat.permute(0,2,1), style_feat)
+    norm_content_feat = functional.normalize(content_feat.view(b,c,h*w),dim=1)
+    norm_style_feat = functional.normalize(style_feat.view(b,c,h*w),dim=1)
+    return torch.bmm(norm_content_feat.permute(0,2,1), norm_style_feat)
 
 def mean_variance_norm(feat):
     size = feat.size()
@@ -39,9 +39,7 @@ class AEAModule(nn.Module):
         clamp_value = self.f_psi(x.view(b * hw, c)) * self.value_interval + self.from_value
         clamp_value = clamp_value.view(b, hw, 1)
         clamp_fx = torch.sigmoid(self.scale_value * (f_x - clamp_value))
-        attention_mask = functional.normalize(clamp_fx, p=1, dim=-1)
-
-        return attention_mask, clamp_value
+        return clamp_fx, clamp_value
 
 
 class AdaptiveSANet(nn.Module):
@@ -181,7 +179,7 @@ class AdaptiveSAModel(nn.Module):
                 if not os.path.exists(clamp_output):
                     os.makedirs(clamp_output, exist_ok=True)
                 plt.show()
-                plt.savefig(os.path.join(clamp_output, f'batch_{i}.png'))
+                plt.savefig(os.path.join(clamp_output, f'iteration_{iterations}_batch_{i}.png'))
             plt.clf()
             plt.close()
             self.train()

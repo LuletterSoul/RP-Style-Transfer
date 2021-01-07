@@ -131,6 +131,7 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         return results[1:]
     
     def test(self, content, style):
+        self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)
             style_feats = self.encode_rp_intermediate(style)
@@ -139,6 +140,7 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
                 stylized = AdaIN(stylized, style_feat)
                 stylized = self.rp_decoder[i+1](stylized)
+            self.train()
             return stylized
 
     def forward(self, content, style, alpha=1.0):

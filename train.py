@@ -139,6 +139,9 @@ test_dataloader = data.DataLoader(
     test_dataset, batch_size=opt['batch_size'], num_workers=opt['num_workers'])
 
 optimizer = torch.optim.Adam(network.parameters(), lr=opt['lr'])
+# optimizer = torch.optim.Adam([
+                            #   {'params': network.decoder.parameters()},
+                            #   {'params': network.transform.parameters()}], lr=opt['lr'])
 
 for i in range(1, opt['max_iter']):
 
@@ -151,9 +154,11 @@ for i in range(1, opt['max_iter']):
     loss_dict, total_loss = network(content_images, style_images)
     # loss = loss_c + loss_s + loss_mrf
 
+
     total_loss.backward()
     optimizer.step()
 
+    print(network.transform.sanet4_1.attention_layer.f_psi[2].weight.grad)
     end = time.time()
 
     eclipse_time = round(end - start, 2)
