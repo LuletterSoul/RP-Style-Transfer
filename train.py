@@ -94,8 +94,10 @@ if opt['network'] == 'adain':
     network = net.AdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'multi_adain':
     network = net.MultiScaleAdaINRPNet(opt, vgg_relu4_1)
-elif opt['network'] == 'sanet':
+elif opt['network'] == 'dynamic_sanet':
     network = net.AdaptiveSAModel(opt, vgg, opt['start_iter'], opt['img_size'])
+elif opt['network'] == 'sanet':
+    network = net.SAModel(opt, vgg, opt['start_iter'], opt['img_size'])
 elif opt['network'] == 'mrf':
     network = net.MRFRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'spade':
@@ -158,7 +160,6 @@ for i in range(1, opt['max_iter']):
     total_loss.backward()
     optimizer.step()
 
-    print(network.transform.sanet4_1.attention_layer.f_psi[2].weight.grad)
     end = time.time()
 
     eclipse_time = round(end - start, 2)
@@ -171,7 +172,7 @@ for i in range(1, opt['max_iter']):
         for idx, (content_images, style_images, content_name, style_name) in enumerate(test_dataloader):
             content_images = content_images.cuda()
             style_images = style_images.cuda()
-            stylizeds = network.test(content_images, style_images)
+            stylizeds = network.test(content_images, style_images,iterations=i)
             output_dir = test_dir / f'{i}'
             output_dir.mkdir(exist_ok=True, parents=True)
             for b_idx, (content_img, style_img, stylized, cn, sn) in enumerate(zip(content_images, style_images, stylizeds, content_name, style_name)):
