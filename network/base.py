@@ -3,12 +3,17 @@ from torch import strided
 import torch.nn as nn
 from torch.nn.modules import padding
 import torch
-from torch.nn.modules.container import ModuleList
+from torch.nn.modules.container import ModuleList, Sequential
 import torch.nn.functional as F
 from torch.nn.modules.loss import MSELoss
+import torchvision
 
+torchvision.models.inception
 
-
+class StackType(object):
+    Deeper = 'deeper'
+    Shallower = 'shallower'
+    Constant = 'constant'
 
 decoder = nn.Sequential(
     nn.ReflectionPad2d((1, 1, 1, 1)),
@@ -101,7 +106,7 @@ vgg = nn.Sequential(
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='relu', pad_type='zero'):
+                 padding=0, norm='none', activation='lrelu', pad_type='zero',inception_num=None):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
@@ -153,9 +158,19 @@ class Conv2dBlock(nn.Module):
         else:
             self.conv = nn.Conv2d(input_dim, output_dim,
                                   kernel_size, stride, bias=self.use_bias)
+        if inception_num:
+            self.inception = ModuleList()
+            for i in range(inception_num):
+                self.inception.append(nn.Sequential(nn.Conv2d(output_dim, output_dim,
+                                  1, 1, bias=self.use_bias)))
+            self.inception = nn.Sequential(*self.inception)
+        else:
+            self.inception = None
 
     def forward(self, x):
         x = self.conv(self.pad(x))
+        if self.inception:
+            x = self.inception(x)
         if self.norm:
             x = self.norm(x)
         if self.activation:
@@ -192,7 +207,7 @@ def build_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1
 
     return nn.Sequential(*rp_blocks)
 
-def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu'):
+def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',inception_num=None):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -200,7 +215,7 @@ def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation))
+                                 activation=activation,inception_num=inception_num))
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
@@ -208,7 +223,7 @@ def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1
                                     kernel_size=ks,
                                     stride=stride,
                                     padding=pd,
-                                    activation=activation))
+                                    activation=activation,inception_num=inception_num))
         hidden_dim *= 2
             
 
@@ -217,9 +232,38 @@ def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1
                                 kernel_size=ks,
                                 stride=stride,
                                 padding=pd,
-                                activation=activation))
+                                activation=activation,inception_num=inception_num))
 
     return rp_blocks
+
+def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',inception_num=None):
+    rp_blocks = ModuleList()
+
+    rp_blocks.append(Conv2dBlock(input_dim=in_dim,
+                                 output_dim=hidden_dim,
+                                 kernel_size=ks,
+                                 stride=stride,
+                                 padding=pd,
+                                 activation=activation,inception_num=inception_num))
+
+    for i in range(0, block_num-2):
+        rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
+                                    output_dim=hidden_dim,
+                                    kernel_size=ks,
+                                    stride=stride,
+                                    padding=pd,
+                                    activation=activation,inception_num=inception_num))
+            
+
+    rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
+                                output_dim=out_dim,
+                                kernel_size=ks,
+                                stride=stride,
+                                padding=pd,
+                                activation=activation,inception_num=inception_num))
+
+    return rp_blocks
+
 
 def rp_shallower_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',incread_depth=True):
     rp_blocks = ModuleList()
@@ -346,7 +390,7 @@ def calc_mean_std(feat, eps=1e-5):
 
 
 def adaptive_instance_normalization(content_feat, style_feat):
-    assert (content_feat.size()[:2] == style_feat.size()[:2])
+    assert (content_feat.size() == style_feat.size())
     size = content_feat.size()
     style_mean, style_std = calc_mean_std(style_feat)
     content_mean, content_std = calc_mean_std(content_feat)

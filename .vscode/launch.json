@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -42,6 +43,18 @@
             "request": "launch",
             "program": "train.py",
             "args": ["--config","config/train_dynamic_sanet.yaml"],
+            "console": "integratedTerminal"
+        },
+        {
+            
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0"
+            },
+            "name": "train_constant_multiscale_rp_adain",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "args": ["--config","config/train_constant_multiscale_rp_adain.yaml"],
             "console": "integratedTerminal"
         }
     ]

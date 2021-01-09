@@ -27,6 +27,8 @@ vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
 hidden_dim : 16
+inception_num: 0          # 1 * 1 Conv
+enc_stack_way: 'deeper'
 k: 5
 fusion_block: 5
 network: multi_adain

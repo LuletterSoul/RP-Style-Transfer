@@ -119,10 +119,20 @@ class AdaINRPNet(nn.Module):
 class MultiScaleAdaINRPNet(AdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
         super().__init__(config,vgg_encoder)
-        self.rp_shared_encoder =rp_deeper_conv_blocks(
-            self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim) 
-        self.rp_decoder = rp_shallower_conv_blocks(
-            self.config['rp_blocks'], self.decoder_in_dim, self.decoder_hidden_dim, 3)
+        self.config = config
+        if self.config['enc_stack_way'] == StackType.Deeper:
+           self.rp_shared_encoder = rp_deeper_conv_blocks(
+                            self.config['rp_blocks'], 3, self.config['hidden_dim'], inception_num=self.config['inception_num'])
+           self.rp_decoder = rp_shallower_conv_blocks(
+                self.config['rp_blocks'], self.decoder_in_dim, self.decoder_hidden_dim, 3)
+
+        elif self.config['enc_stack_way'] == StackType.Constant:
+            self.encoder_out_dim = self.config['hidden_dim']
+            self.rp_shared_encoder =rp_constant_conv_blocks(
+                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim,inception_num=self.config['inception_num'])
+            self.decoder_in_dim = self.encoder_out_dim
+            self.rp_decoder = rp_constant_conv_blocks(
+                    self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
     
     def encode_rp_intermediate(self, input):
         results = [input]
@@ -130,18 +140,24 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
     
-    def test(self, content, style):
+    def test(self, content, style, iterations=0):
         self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)
             style_feats = self.encode_rp_intermediate(style)
             stylized= AdaIN(content_feats[-1], style_feats[-1])
-            stylized = self.rp_decoder[0](stylized)
-            for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
-                stylized = AdaIN(stylized, style_feat)
-                stylized = self.rp_decoder[i+1](stylized)
+            stylized = self.decode(content_feats,style_feats)
             self.train()
             return stylized
+    
+    def decode(self,content_feats, style_feats):
+        stylized= AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.rp_decoder[0](stylized)
+        for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
+            stylized = AdaIN(stylized, style_feat)
+            stylized = self.rp_decoder[i+1](stylized)
+        return stylized
+
 
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
@@ -149,14 +165,11 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         content_feats = self.encode_rp_intermediate(content)
         style_feats = self.encode_rp_intermediate(style)
         # for style_feat in style_feats:
-            # print(style_feat.size())
+        #     print(style_feat.size())
 
-        stylized= AdaIN(content_feats[-1], style_feats[-1])
-        stylized = self.rp_decoder[0](stylized)
-        for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
-            stylized = AdaIN(stylized, style_feat)
-            stylized = self.rp_decoder[i+1](stylized)
-
+        # for content_feat in content_feats:
+        #     print(content_feat.size())
+        stylized = self.decode(content_feats, style_feats)
         down_stylized_feats = self.encode_with_intermediate(stylized)
         down_style_feats = self.encode_with_intermediate(style)
         down_content_feats = self.encode_with_intermediate(content)
@@ -176,3 +189,44 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             'content_loss': loss_c,
             'total_loss': total_loss
         }, total_loss
+
+
+class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
+    def __init__(self, config, vgg_encoder) -> None:
+        super().__init__(config, vgg_encoder)
+        hidden_dim = 8
+
+        self.layer_num = 5
+
+        setattr(self,'rp_enc0_small_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
+        setattr(self,'rp_enc0_big_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
+
+        for i in range(self.layer_num-1):
+            hidden_dim *=2
+            setattr(self,f'rp_enc{i+1}_small_revf',Conv2dBlock(hidden_dim,hidden_dim,3,1,1,inception_num=1))
+            setattr(self,f'rp_enc{i+1}_big_revf',Conv2dBlock(hidden_dim,hidden_dim,7,1,3,inception_num=1))
+    
+        for i in range(self.layer_num-1):
+            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
+            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
+            hidden_dim //= 2
+        
+        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
+        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
+
+    def decode(self,content_feats, style_feats):
+        stylized= AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.rp_dec0(stylized)
+        for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
+            stylized = AdaIN(stylized, style_feat)
+            stylized = getattr(self,f'rp_dec{i+1}')(stylized)
+        return stylized   
+    
+    
+    def encode_rp_intermediate(self, input):
+        results = [input]
+        for i in range(self.layer_num):
+            rp_enc_small_revf_feat = getattr(self, f'rp_enc{i}_small_revf')(results[-1])
+            rp_enc_big_revf_feat = getattr(self, f'rp_enc{i}_big_revf')(results[-1])
+            results.append(torch.cat([rp_enc_small_revf_feat,rp_enc_big_revf_feat],dim=1))
+        return results[1:]
