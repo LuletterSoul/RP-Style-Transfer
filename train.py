@@ -179,10 +179,14 @@ for i in range(1, opt['max_iter']):
             output_dir.mkdir(exist_ok=True, parents=True)
             for b_idx, (content_img, style_img, stylized, cn, sn) in enumerate(zip(content_images, style_images, stylizeds, content_name, style_name)):
                 images = torch.stack([content_img, style_img, stylized], dim=0)
-                output_path = output_dir / \
+                cat_output_path = output_dir / \
+                    f'{cn}-{sn}-cat.png'
+                stylized_output_path = output_dir / \
                     f'{cn}-{sn}.png'
                 torchvision.utils.save_image(
-                    images, output_path, nrow=3)
+                    images, cat_output_path, nrow=3)
+                torchvision.utils.save_image(
+                    stylized, stylized_output_path, nrow=1)
                 logger.info(f'Proceed {cn}-{sn}.')
 
     if i % opt['log_iter'] == 0:

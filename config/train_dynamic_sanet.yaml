@@ -48,7 +48,7 @@ num_workers: 8                                            # number of data loadi
 content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/default_st/test1
-output: output/0107_AdaptiveSANet_lr1e-3_cw1_sw1
+output: output/0110_AdaptiveSANet_lr1e-4_cw1_sw1
 
 # dataset options 
 img_size: 512
