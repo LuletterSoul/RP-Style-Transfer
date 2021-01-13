@@ -1,3 +1,4 @@
+from inspect import Traceback
 from sampler import InfiniteSamplerWrapper
 import network as net
 import argparse
@@ -8,6 +9,7 @@ import time
 import os
 import cv2
 from datasets import *
+import traceback
 
 import torch
 # import torch.backends.cudnn as cudnn
@@ -91,9 +93,11 @@ vgg.load_state_dict(torch.load(opt['vgg']))
 vgg_relu4_1 = nn.Sequential(*list(vgg.children())[:31])
 
 if opt['network'] == 'adain':
-    network = net.AdaINRPNet(opt, vgg_relu4_1)
+    network = net.SegAdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'multi_adain':
     network = net.MultiScaleAdaINRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'wct':
+    network = net.WCTRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain':
     network = net.LDMSAdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'dynamic_sanet':
@@ -149,51 +153,56 @@ optimizer = torch.optim.Adam(network.parameters(), lr=opt['lr'])
 
 for i in range(1, opt['max_iter']):
 
-    start = time.time()
-    optimizer.zero_grad()
-    adjust_learning_rate(opt,optimizer, iteration_count=i)
-    content_images = next(content_iter).cuda().detach()
-    style_images = next(style_iter).cuda().detach()
-    # loss_mrf, loss_c, loss_s = network(content_images, style_images)
-    loss_dict, total_loss = network(content_images, style_images)
-    # loss = loss_c + loss_s + loss_mrf
+    try:
+        start = time.time()
+        optimizer.zero_grad()
+        adjust_learning_rate(opt,optimizer, iteration_count=i)
+        content_images = next(content_iter).cuda().detach()
+        style_images = next(style_iter).cuda().detach()
+        # loss_mrf, loss_c, loss_s = network(content_images, style_images)
+        loss_dict, total_loss = network(content_images, style_images)
+        # loss = loss_c + loss_s + loss_mrf
 
 
-    total_loss.backward()
-    optimizer.step()
+        total_loss.backward()
+        optimizer.step()
 
-    end = time.time()
+        end = time.time()
 
-    eclipse_time = round(end - start, 2)
-    loss_str = ''
-    for key, loss_item in loss_dict.items():
-        writer.add_scalar(key, loss_item, i)
-        loss_str += f', {key} {loss_item}'
+        eclipse_time = round(end - start, 2)
+        loss_str = ''
+        for key, loss_item in loss_dict.items():
+            writer.add_scalar(key, loss_item, i)
+            loss_str += f', {key} {loss_item}'
 
-    if i % opt['test_iter'] == 0:
-        for idx, (content_images, style_images, content_name, style_name) in enumerate(test_dataloader):
-            content_images = content_images.cuda()
-            style_images = style_images.cuda()
-            stylizeds = network.test(content_images, style_images,iterations=i)
-            output_dir = test_dir / f'{i}'
-            output_dir.mkdir(exist_ok=True, parents=True)
-            for b_idx, (content_img, style_img, stylized, cn, sn) in enumerate(zip(content_images, style_images, stylizeds, content_name, style_name)):
-                images = torch.stack([content_img, style_img, stylized], dim=0)
-                cat_output_path = output_dir / \
-                    f'{cn}-{sn}-cat.png'
-                stylized_output_path = output_dir / \
-                    f'{cn}-{sn}.png'
-                torchvision.utils.save_image(
-                    images, cat_output_path, nrow=3)
-                torchvision.utils.save_image(
-                    stylized, stylized_output_path, nrow=1)
-                logger.info(f'Proceed {cn}-{sn}.')
+        if i % opt['test_iter'] == 0:
+            for idx, (content_images, style_images, content_name, style_name) in enumerate(test_dataloader):
+                content_images = content_images.cuda()
+                style_images = style_images.cuda()
+                stylizeds = network.test(content_images, style_images,iterations=i,bid=idx)
+                output_dir = test_dir / f'{i}'
+                output_dir.mkdir(exist_ok=True, parents=True)
+                for b_idx, (content_img, style_img, stylized, cn, sn) in enumerate(zip(content_images, style_images, stylizeds, content_name, style_name)):
+                    images = torch.stack([content_img, style_img, stylized], dim=0)
+                    cat_output_path = output_dir / \
+                        f'{cn}-{sn}-cat.png'
+                    stylized_output_path = output_dir / \
+                        f'{cn}-{sn}.png'
+                    torchvision.utils.save_image(
+                        images, cat_output_path, nrow=3)
+                    torchvision.utils.save_image(
+                        stylized, stylized_output_path, nrow=1)
+                    logger.info(f'Proceed {cn}-{sn}.')
 
-    if i % opt['log_iter'] == 0:
-        logger.info(
-            f'Iterations {i}, elapsed time: {eclipse_time} {loss_str}')
+        if i % opt['log_iter'] == 0:
+            logger.info(
+                f'Iterations {i}, elapsed time: {eclipse_time} {loss_str}')
 
-    if i % opt['snapshot_save_iter'] == 0 or (i + 1) == opt['max_iter']:
-        torch.save(network.state_dict(), checkpoint_dir /
-                   f'{i}.pth')
+        if i % opt['snapshot_save_iter'] == 0 or (i + 1) == opt['max_iter']:
+            # torch.save(network.state_dict(), checkpoint_dir /
+                    #    f'{i}.pth')
+            network.save(checkpoint_dir / f'{i}.pth',iterations=i)
+    except Exception as e:
+        traceback.print_exc()
+        pass
 writer.close()

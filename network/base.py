@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from numpy.lib.arraypad import pad
 from torch import strided
 import torch.nn as nn
@@ -462,3 +463,36 @@ class Net(nn.Module):
         for i in range(1, 4):
             loss_s += self.calc_style_loss(g_t_feats[i], style_feats[i])
         return loss_c, loss_s
+
+class BaseNet(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+    
+    @abstractmethod
+    def test(self, content, style, iterations=0):
+        pass
+
+    @abstractmethod
+    def save():
+        pass
+
+    @abstractmethod
+    def decode(self,content_feats, style_feats):
+        pass
+
+
+    @abstractmethod
+    def fuse(self,content_feats, style_feats):
+        pass
+
+
+    @abstractmethod
+    def encode_with_intermediate(self, input):
+        pass
+
+    @abstractmethod
+    def save(self, save_path):
+        pass
+
+       
+        

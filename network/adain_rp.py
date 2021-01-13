@@ -2,9 +2,9 @@ from .base import *
 from .base import adaptive_instance_normalization as AdaIN
 
 
-class AdaINRPNet(nn.Module):
+class SegAdaINRPNet(BaseNet):
     def __init__(self, config, vgg_encoder) -> None:
-        super(AdaINRPNet, self).__init__()
+        super(SegAdaINRPNet, self).__init__()
         # super(Net, self).__init__()
         enc_layers = list(vgg_encoder.children())
         self.config = config
@@ -77,13 +77,22 @@ class AdaINRPNet(nn.Module):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def test(self, content, style,iterations=0):
+    def test(self, content, style,iterations=0,bid=0):
         with torch.no_grad():
             content_feat = self.rp_shared_encoder(content)
-            style_feat = self.rp_style_encoder(style)
+            style_feat = self.rp_shared_encoder(style)
             fusion_feat = AdaIN(content_feat, style_feat)
             stylized = self.rp_decoder(fusion_feat)
             return stylized
+
+    def save(self, save_path, iterations=0):
+        state_dict = {
+            'encoder': self.rp_shared_encoder.state_dict(),
+            'decoder': self.rp_decoder.state_dict()
+        }
+        torch.save(state_dict, save_path)
+
+
 
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
@@ -116,7 +125,7 @@ class AdaINRPNet(nn.Module):
         }, total_loss
 
 
-class MultiScaleAdaINRPNet(AdaINRPNet):
+class MultiScaleAdaINRPNet(SegAdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
         super().__init__(config,vgg_encoder)
         self.config = config
@@ -140,7 +149,7 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
     
-    def test(self, content, style, iterations=0):
+    def test(self, content, style, iterations=0,bid=0):
         self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)

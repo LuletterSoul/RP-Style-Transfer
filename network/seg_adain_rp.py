@@ -1,5 +1,6 @@
 from .base import *
-from .adain_rp import AdaINRPNet
+from .adain_rp import SegAdaINRPNet
+from .base import adaptive_instance_normalization as AdaIN
 
 
 class CrossEntropy(nn.Module):
@@ -34,9 +35,9 @@ class SegRPNet(nn.Module):
         return self.seg_head(x)
 
 
-class AdaINRPNet(nn.Module):
+class SegAdaINRPNet(nn.Module):
     def __init__(self, config, vgg_encoder) -> None:
-        super(AdaINRPNet, self).__init__()
+        super(SegAdaINRPNet, self).__init__()
         # super(Net, self).__init__()
         enc_layers = list(vgg_encoder.children())
         self.config = config
@@ -83,13 +84,13 @@ class AdaINRPNet(nn.Module):
         self.rp_decoder = build_decrease_depth_rp_blocks(
             self.config['rp_blocks'], self.decoder_in_dim, self.decoder_hidden_dim, 3)
         
-        self.class_weights = torch.FloatTensor([0.8373, 0.918, 0.866, 1.0345, 
-                                1.0166, 0.9969, 0.9754, 1.0489,
-                                0.8786, 1.0023, 0.9539, 0.9843, 
-                                1.1116, 0.9037, 1.0865, 1.0955, 
-                                1.0865, 1.1529, 1.0507]).cuda()
+        # self.class_weights = torch.FloatTensor([0.8373, 0.918, 0.866, 1.0345, 
+        #                         1.0166, 0.9969, 0.9754, 1.0489,
+        #                         0.8786, 1.0023, 0.9539, 0.9843, 
+        #                         1.1116, 0.9037, 1.0865, 1.0955, 
+        #                         1.0865, 1.1529, 1.0507]).cuda()
         
-        self.seg_rp_net = SegRPNet(config,self.encoder_out_dim)
+        # self.seg_rp_net = SegRPNet(config,self.encoder_out_dim)
 
         self.mse_loss = MSELoss()
         self.ce_loss = CrossEntropy(ignore_label=-1,weight=self.class_weights)
@@ -121,7 +122,7 @@ class AdaINRPNet(nn.Module):
     def test(self, content, style):
         with torch.no_grad():
             content_feat = self.rp_shared_encoder(content)
-            style_feat = self.rp_style_encoder(style)
+            style_feat = self.rp_shared_encoder(style)
             fusion_feat = AdaIN(content_feat, style_feat)
             stylized = self.rp_decoder(fusion_feat)
             return stylized
@@ -132,11 +133,11 @@ class AdaINRPNet(nn.Module):
         content_feat = self.rp_shared_encoder(content)
         style_feat = self.rp_shared_encoder(style)
 
-        content_pred = self.seg_rp_net(content_feat)
-        style_pred = self.seg_rp_net(style_feat)
+        # content_pred = self.seg_rp_net(content_feat)
+        # style_pred = self.seg_rp_net(style_feat)
 
-        content_label = torch.argmax(content_pred, dim =1)
-        label_label = torch.argmax(style_pred, dim =1)
+        # content_label = torch.argmax(content_pred, dim =1)
+        # label_label = torch.argmax(style_pred, dim =1)
 
         fusion_feat = AdaIN(content_feat, style_feat)
 

@@ -197,12 +197,20 @@ def compared_rp_net():
     compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000/crop', 
                             'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000/crop',
                             'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000/crop',
-                            'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/50000/crop',
+                            'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/200000/crop',
                             'output/baselines/DPST', 
                             'output/baselines/LST', 
                             'output/baselines/PhotoWCT',
                             'output/baselines/WCT2']
-    output_dir = 'output/compared/0110_rpnet_cmp'
+    # compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000', 
+    #                     'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000',
+    #                     'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000',
+    #                     'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/200000',
+    #                     'output/baselines/DPST', 
+    #                     'output/baselines/LST', 
+    #                     'output/baselines/PhotoWCT',
+    #                     'output/baselines/WCT2']
+    output_dir = 'output/compared/0112_rpnet_cmp'
     # crop_original(compared_method_dirs[0:4])
     compose_compared_imgs(content_dir,style_dir,compared_method_dirs, output_dir)
 

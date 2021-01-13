@@ -2,36 +2,36 @@
 snapshot_save_iter: 10000     # How often do you want to save trained models
 image_save_iter: 1
 log_iter: 1                 # How often do you want to log the training stats
-test_iter: 5000
-start_iter: 0
+test_iter: 10000
 
 # optimization options
 max_iter: 1000000             # maximum number of training iterations
-batch_size: 1                 # batch size
+batch_size: 2                 # batch size
 weight_decay: 0.0001          # weight decay
 beta1: 0.5                    # Adam parameter
 beta2: 0.999                  # Adam parameter
-init: orthogonal              # initialization [gaussian/kaiming/xavier/orthogonal]
+init: orthogonal                 # initialization [gaussian/kaiming/xavier/orthogonal]
 lr: 0.0001                     # initial learning rate
-lr_decay: 0.00005             # initial learning rate
+lr_decay: 0.00001             # initial learning rate
 lr_policy: step               # learning rate scheduler
 step_size: 10000              # how often to decay learning rate
 gamma: 0.5                    # how much to decay learning rate
-content_weight: 1             # loss weight
-style_weight: 3               # loss weight
-l_identity1_weight: 50        # loss weight
-l_identity2_weight: 1         # loss weight
-mrf_weight: 0                 # loss weight
+content_weight: 1                # loss weight
+style_weight: 1                  # loss weight
+mrf_weight: 0                    # loss weight
 
 
 # model options
+
 vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
 hidden_dim : 16
+inception_num: 0          # 1 * 1 Conv
+enc_stack_way: 'adain'
 k: 5
 fusion_block: 5
-network: dynamic_sanet
+network: adain
 spade_block: 5
 spade: true
 spade_norm: instance
@@ -45,11 +45,13 @@ class_num: 19
 
 # data options
 num_workers: 8                                            # number of data loading threads
+img_size: 512
 content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
-test_dir: /data/lxd/datasets/default_st/test1
-output: output/0113_AdaptiveSANet_lr1e-4_cw1_sw1_fval0.4_visulized
+test_dir: /data/lxd/datasets/photo_data
+output: output/0112_AdaINRPNet_lr1e-4_cw1_sw1
+checkpoint_path: 
+resume: False
 
 # dataset options 
-img_size: 512
-test_dataset: 'paired'
+test_dataset: 'photoreal'
