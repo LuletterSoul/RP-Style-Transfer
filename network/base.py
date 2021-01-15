@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from numpy.lib.arraypad import pad
+import numpy as np
 from torch import strided
 import torch.nn as nn
 from torch.nn.modules import padding
@@ -8,6 +9,7 @@ from torch.nn.modules.container import ModuleList, Sequential
 import torch.nn.functional as F
 from torch.nn.modules.loss import MSELoss
 import torchvision
+from PIL import Image
 
 torchvision.models.inception
 
@@ -400,9 +402,102 @@ def adaptive_instance_normalization(content_feat, style_feat):
         size)) / content_std.expand(size)
     return normalized_feat * style_std.expand(size) + style_mean.expand(size)
 
+def compute_label_info(content_segment, style_segment):
+    if not content_segment.size or not style_segment.size:
+        return None, None
+    max_label = np.max(content_segment) + 1
+    label_set = np.unique(content_segment)
+    label_indicator = np.zeros(max_label)
+    for l in label_set:
+        content_mask = np.where(content_segment.reshape(content_segment.shape[0] * content_segment.shape[1]) == l)
+        style_mask = np.where(style_segment.reshape(style_segment.shape[0] * style_segment.shape[1]) == l)
 
+        c_size = content_mask[0].size
+        s_size = style_mask[0].size
+        if c_size > 10 and s_size > 10 and c_size / s_size < 100 and s_size / c_size < 100:
+            label_indicator[l] = True
+        else:
+            label_indicator[l] = False
+    return label_set, label_indicator
 
+def get_segment_and_info(content_seg_path, style_seg_path, content_shape, style_shape):
+    """
+    :param content_seg_path:
+    :param style_seg_path:
+    :param content_shape: (wc, hc)
+    :param style_shape: (ws, hs)
+    :return:
+    """
+    c_seg = np.asarray(Image.open(content_seg_path).resize(content_shape))
+    s_seg = np.asarray(Image.open(style_seg_path).resize(style_shape))
+    print(f'content_seg_label={np.unique(c_seg)}， style_seg_label={np.unique(s_seg)}')
+    label_set, label_indicator = compute_label_info(c_seg, s_seg)
+    return c_seg, s_seg, label_set, label_indicator
 
+def get_index(feat, label, device):
+    mask = np.where(feat.reshape(feat.shape[0] * feat.shape[1]) == label)
+    if mask[0].size <= 0:
+        return None
+    return torch.LongTensor(mask[0]).to(device)
+
+def calc_mean_std_for_masked_feat(masked_feat, eps=1e-5):
+    """
+    :param masked_feat: (c, k)
+    :param eps:
+    :return: ()
+    """
+    c, k = masked_feat.size()
+    feat_var = masked_feat.var(dim=1) + eps
+    feat_std = feat_var.sqrt().view(c, 1)
+    feat_mean = masked_feat.mean(dim=1).view(c, 1)
+    return feat_mean, feat_std
+
+def adaptive_instance_normalization_for_masked_feat(masked_content_feat, masked_style_feat):
+    """
+    :param masked_content_feat: (c, nc)
+    :param masked_style_feat: (c, ns)
+    :return: (c, nc)
+    """
+    size = masked_content_feat.size()
+    content_mean, content_std = calc_mean_std_for_masked_feat(masked_content_feat)
+    style_mean, style_std = calc_mean_std_for_masked_feat(masked_style_feat)
+    # print(f'masked_content_feat.size={masked_content_feat.size()}, content_mean.size={content_mean.size()}')
+    normalized_feat = (masked_content_feat - content_mean.expand(size)) / content_std.expand(size)
+    return normalized_feat * style_std.expand(size) + style_mean.expand(size)
+
+def adaptive_instance_normalization_with_segment(content_feat, style_feat, content_seg_path, style_seg_path):
+    """
+    :param content_feat: (1, c, hc, wc)
+    :param style_feat:  (1, c, hs, ws)
+    :param content_seg_path: content segment path
+    :param style_seg_path: style segment path
+    :return:
+    """
+    device = content_feat.device
+    # TODO add size judge
+    content_shape = (content_feat.size()[3], content_feat.size()[2])
+    style_shape = (style_feat.size()[3], style_feat.size()[2])
+    c_seg, s_seg, label_set, label_indicator = get_segment_and_info(content_seg_path, style_seg_path, content_shape,
+                                                                    style_shape)
+    content_feat_size = content_feat.size()
+    style_feat_size = style_feat.size()
+    content_feat = content_feat.squeeze(0).view(content_feat_size[1], -1)
+    style_feat = style_feat.squeeze(0).view(style_feat_size[1], -1)
+    target_feat = content_feat.clone()
+    for label in label_set:
+        if not label_indicator[label]:
+            # invalid label
+            continue
+        content_index = get_index(c_seg, label, device)
+        style_index = get_index(s_seg, label, device)
+        if content_index is None or style_index is None:
+            continue
+        masked_content_feat = torch.index_select(content_feat, dim=1, index=content_index)
+        masked_style_feat = torch.index_select(style_feat, dim=1, index=style_index)
+        normalized_feat = adaptive_instance_normalization_for_masked_feat(masked_content_feat, masked_style_feat)
+        target_feat.index_copy_(1, content_index, normalized_feat)
+    target_feat = target_feat.view(content_feat_size[1], content_feat_size[2], content_feat_size[3]).unsqueeze(0)
+    return target_feat
 
 
 class Net(nn.Module):

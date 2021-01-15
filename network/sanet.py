@@ -1,6 +1,7 @@
 from genericpath import exists
 
 from torch import random
+from torch.optim import adam
 from .base import *
 from torch.nn import functional
 import matplotlib.pyplot as plt
@@ -45,9 +46,9 @@ class AEAModule(nn.Module):
         return clamp_fx, clamp_value
 
 
-class AEAModule2(nn.Module):
+class AEALReluModule(nn.Module):
     def __init__(self, inplanes, scale_value=50, from_value=0.4, value_interval=0.5):
-        super(AEAModule2, self).__init__()
+        super(AEALReluModule, self).__init__()
         self.inplanes = inplanes
         self.scale_value = scale_value
         self.from_value = from_value
@@ -59,14 +60,14 @@ class AEAModule2(nn.Module):
             nn.Linear(self.inplanes // 16, 1),
             nn.Tanh()
         )
-
-        self.relu = nn.ReLU(inplace=True)
+        self.clamp_sig= nn.Sequential(nn.ReLU(inplace=True),
+                                      nn.Softmax(dim=-1))
 
     def forward(self, x, f_x):
         b, hw, c = x.size()
         clamp_value = (self.f_psi(x.view(b * hw, c)) + 1) / 2
         clamp_value = clamp_value.view(b, hw, 1)
-        clamp_fx = self.relu(f_x - clamp_value)
+        clamp_fx = self.clamp_sig(f_x - clamp_value)
         return clamp_fx, clamp_value
 
 class SANet(nn.Module):
@@ -97,14 +98,14 @@ class SANet(nn.Module):
         O += content
         return O
 class AdaptiveSANet(nn.Module):
-    def __init__(self, in_planes, spatial_dims):
+    def __init__(self, in_planes, spatial_dims, ada_module='aea'):
         super(AdaptiveSANet, self).__init__()
         self.f = nn.Conv2d(in_planes, in_planes, (1, 1))
         self.g = nn.Conv2d(in_planes, in_planes, (1, 1))
         self.h = nn.Conv2d(in_planes, in_planes, (1, 1))
         self.sm = nn.Softmax(dim = -1)
         self.out_conv = nn.Conv2d(in_planes, in_planes, (1, 1))
-        self.attention_layer = AEAModule(spatial_dims)
+        self.attention_layer = AEAModule(spatial_dims) if ada_module == 'aea' else AEALReluModule(spatial_dims)
         self.claim_value = 0
         self.claim_before = 0
         self.claim_after = 0
@@ -120,11 +121,12 @@ class AdaptiveSANet(nn.Module):
         b, c, h, w = G.size()
         G = G.view(b, -1, w * h)
         S = torch.bmm(F, G) # B * HW * HW
+        # SM_S = self.sm(S)
+        S = self.sm(S) # softmax across colum-aix
         self.claim_before = S
         S, claim_value = self.attention_layer(affinity_matrix, S) # B * HW * HW
         self.claim_after = S
-        SM_S = self.sm(S)
-        self.claim_after_sm = SM_S
+        # self.claim_after_sm = SM_S
         b, c, h, w = H.size()
         H = H.view(b, -1, w * h)
         O = torch.bmm(H, S.permute(0, 2, 1))
@@ -147,10 +149,10 @@ class Transform(nn.Module):
         return self.merge_conv(self.merge_conv_pad(self.sanet4_1(content4_1, style4_1) + self.upsample5_1(self.sanet5_1(content5_1, style5_1))))
 
 class AdaptiveTransform(nn.Module):
-    def __init__(self, in_planes, relu4_1_dims, relu5_1_dims):
+    def __init__(self, in_planes, relu4_1_dims, relu5_1_dims,ada_module='aea'):
         super(AdaptiveTransform, self).__init__()
-        self.sanet4_1 = AdaptiveSANet(in_planes = in_planes,spatial_dims= relu4_1_dims)
-        self.sanet5_1 = AdaptiveSANet(in_planes = in_planes, spatial_dims= relu5_1_dims)
+        self.sanet4_1 = AdaptiveSANet(in_planes = in_planes,spatial_dims= relu4_1_dims, ada_module=ada_module)
+        self.sanet5_1 = AdaptiveSANet(in_planes = in_planes, spatial_dims= relu5_1_dims,ada_module = ada_module)
         self.upsample5_1 = nn.Upsample(scale_factor=2, mode='nearest')
         self.merge_conv_pad = nn.ReflectionPad2d((1, 1, 1, 1))
         self.merge_conv = nn.Conv2d(in_planes, in_planes, (3, 3))
@@ -233,7 +235,7 @@ class SAModel(nn.Module):
         return self.mse_loss(input_mean, target_mean) + \
                self.mse_loss(input_std, target_std)
                
-    def test(self, content, style, iterations=0,bid=0):
+    def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
             style_feats = self.encode_with_intermediate(style)
@@ -287,7 +289,7 @@ class AdaptiveSAModel(BaseNet):
         #transform
         self.relu4_1_dims = (img_size // 2 ** 3) ** 2
         self.relu5_1_dims = (img_size // 2 ** 4) ** 2
-        self.transform = AdaptiveTransform(in_planes = 512,relu4_1_dims=self.relu4_1_dims,relu5_1_dims= self.relu5_1_dims)
+        self.transform = AdaptiveTransform(in_planes = 512,relu4_1_dims=self.relu4_1_dims,relu5_1_dims= self.relu5_1_dims,ada_module=self.config['ada_module'])
         self.decoder = decoder
         if(start_iter > 0):
             self.transform.load_state_dict(torch.load('transformer_iter_' + str(start_iter) + '.pth'))
@@ -329,7 +331,7 @@ class AdaptiveSAModel(BaseNet):
         fusion = self.transform(content_feats[3], style_feats[3], content_feats[4], style_feats[4])
         return fusion
     
-    def test(self, content, style, iterations=0,bid=0):
+    def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
             style_feats = self.encode_with_intermediate(style)
@@ -344,17 +346,17 @@ class AdaptiveSAModel(BaseNet):
             relu5_1_claim_value = self.transform.sanet5_1.claim_value.detach().view(b,h5,w5).cpu().numpy().squeeze()
             relu5_1_claim_before = self.transform.sanet5_1.claim_before.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy().squeeze()
             relu5_1_claim_after = self.transform.sanet5_1.claim_after.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy().squeeze()
-            relu5_1_claim_after_sm = self.transform.sanet5_1.claim_after_sm.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy().squeeze()
+            # relu5_1_claim_after_sm = self.transform.sanet5_1.claim_after_sm.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy().squeeze()
             fig, ax = plt.subplots(2,2,constrained_layout=True)
             print(f'Test stage, bidx {bid}, claim value {relu5_1_claim_value}')
             ax[0,0].set_title('Dynamic threshold') #设置x轴图例为空值
             ax[0,1].set_title('Attention before claim') #设置x轴图例为空值
             ax[1,0].set_title('Attention after claim') #设置x轴图例为空值
-            ax[1,1].set_title('Attention after claim and sigmoid') #设置x轴图例为空值
+            # ax[1,1].set_title('Attention after claim and sigmoid') #设置x轴图例为空值
             seaborn.heatmap(data=relu5_1_claim_value, vmin=0, vmax=1, ax=ax[0,0])
             seaborn.heatmap(data=relu5_1_claim_before, vmin=0, vmax=1, ax=ax[0,1])
             seaborn.heatmap(data=relu5_1_claim_after, vmin=0, vmax=1, ax=ax[1,0])
-            seaborn.heatmap(data=relu5_1_claim_after_sm, vmin=0, vmax=1, ax=ax[1,1])
+            # seaborn.heatmap(data=relu5_1_claim_after_sm, vmin=0, vmax=1, ax=ax[1,1])
             clamp_output = os.path.join(self.config['output'],'claim_map')
             if not os.path.exists(clamp_output):
                 os.makedirs(clamp_output, exist_ok=True)
@@ -392,17 +394,24 @@ class AdaptiveSAModel(BaseNet):
         relu5_1_claim_value = self.transform.sanet5_1.claim_value.detach().view(b,h5,w5).cpu().numpy()
         relu5_1_claim_before = self.transform.sanet5_1.claim_before.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy()
         relu5_1_claim_after = self.transform.sanet5_1.claim_after.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy()
-        relu5_1_claim_after_sm = self.transform.sanet5_1.claim_after_sm.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy()
+        # relu5_1_claim_after_sm = self.transform.sanet5_1.claim_after_sm.detach().view(b,h5*w5,h5*w5)[:,index,:].view(b,h5,w5).cpu().numpy()
         # relu5_1_claim_value = self.transform.sanet5_1.claim_value.detach().view(b,h5,w5).cpu().numpy()
         # relu5_1_claim_before = self.transform.sanet5_1.claim_before.detach().view(b,h5*w5,h5*w5).cpu().numpy()
         # relu5_1_claim_after = self.transform.sanet5_1.claim_after.detach().view(b,h5*w5,h5*w5).cpu().numpy()
         # relu5_1_claim_after_sm = self.transform.sanet5_1.claim_after_sm.detach().view(b,h5*w5,h5*w5).cpu().numpy()
 
-        for i, (clam_value_map, claim_before, claim_after, clain_after_sm) in enumerate(zip(relu5_1_claim_value, relu5_1_claim_before, relu5_1_claim_after, relu5_1_claim_after_sm)):
-            print(f'Train stage, bid {i}, clam value map {clam_value_map}')
-            print(f'Train stage, bid {i}, clam before map {claim_before}')
-            print(f'Train stage, bid {i}, clam after map {claim_after}')
-            print(f'Train stage, bid {i}, clam after sigmoid map {clain_after_sm}')
+        # for i, (clam_value_map, claim_before, claim_after, clain_after_sm) in enumerate(zip(relu5_1_claim_value, relu5_1_claim_before, relu5_1_claim_after, relu5_1_claim_after_sm)):
+        #     print(f'Train stage, bid {i}, clam value map {clam_value_map}')
+        #     print(f'Train stage, bid {i}, clam before map {claim_before}')
+        #     print(f'Train stage, bid {i}, clam after map {claim_after}')
+        #     print(f'Train stage, bid {i}, clam after sigmoid map {clain_after_sm}')
+    
+        # for i, (clam_value_map, claim_before, claim_after) in enumerate(zip(relu5_1_claim_value, relu5_1_claim_before, relu5_1_claim_after)):
+        #     print(f'Train stage, bid {i}, clam value map {clam_value_map}')
+        #     print(f'Train stage, bid {i}, clam before map {claim_before}')
+        #     print(f'Train stage, bid {i}, clam after map {claim_after}')
+            # print(f'Train stage, bid {i}, clam after sigmoid map {clain_after_sm}')
+    
         
         total_loss = self.config['content_weight'] * loss_c + self.config['style_weight'] * loss_s + self.config['l_identity1_weight'] * l_identity1 + self.config['l_identity2_weight'] * l_identity2
         return {

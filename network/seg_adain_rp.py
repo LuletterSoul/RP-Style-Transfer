@@ -1,5 +1,5 @@
 from .base import *
-from .adain_rp import SegAdaINRPNet
+from .adain_rp import AdaINRPNet
 from .base import adaptive_instance_normalization as AdaIN
 
 
@@ -35,9 +35,9 @@ class SegRPNet(nn.Module):
         return self.seg_head(x)
 
 
-class SegAdaINRPNet(nn.Module):
+class AdaINRPNet(nn.Module):
     def __init__(self, config, vgg_encoder) -> None:
-        super(SegAdaINRPNet, self).__init__()
+        super(AdaINRPNet, self).__init__()
         # super(Net, self).__init__()
         enc_layers = list(vgg_encoder.children())
         self.config = config

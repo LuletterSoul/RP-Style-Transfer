@@ -98,7 +98,7 @@ class MRFRPNet(nn.Module):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def test(self, content, style, iterations=0,bid=0):
+    def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         with torch.no_grad():
             content_feat = self.rp_content_encoder(content)
             style_feat = self.rp_style_encoder(style)

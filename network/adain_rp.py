@@ -1,10 +1,12 @@
+from torch import stack
 from .base import *
 from .base import adaptive_instance_normalization as AdaIN
+from .base import adaptive_instance_normalization_with_segment as AdaINSeg
 
 
-class SegAdaINRPNet(BaseNet):
+class AdaINRPNet(BaseNet):
     def __init__(self, config, vgg_encoder) -> None:
-        super(SegAdaINRPNet, self).__init__()
+        super(AdaINRPNet, self).__init__()
         # super(Net, self).__init__()
         enc_layers = list(vgg_encoder.children())
         self.config = config
@@ -77,11 +79,16 @@ class SegAdaINRPNet(BaseNet):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def test(self, content, style,iterations=0,bid=0):
+    def fuse(self,content_feats, style_feats):
+        fusion = AdaIN(content_feats, style_feats)
+        return fusion
+
+    def test(self, content, style,iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         with torch.no_grad():
             content_feat = self.rp_shared_encoder(content)
             style_feat = self.rp_shared_encoder(style)
-            fusion_feat = AdaIN(content_feat, style_feat)
+            # fusion_feat = AdaIN(content_feat, style_feat)
+            fusion_feat = self.fuse(content_feat, style_feat)
             stylized = self.rp_decoder(fusion_feat)
             return stylized
 
@@ -125,7 +132,7 @@ class SegAdaINRPNet(BaseNet):
         }, total_loss
 
 
-class MultiScaleAdaINRPNet(SegAdaINRPNet):
+class MultiScaleAdaINRPNet(AdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
         super().__init__(config,vgg_encoder)
         self.config = config
@@ -149,21 +156,33 @@ class MultiScaleAdaINRPNet(SegAdaINRPNet):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
     
-    def test(self, content, style, iterations=0,bid=0):
+    def save(self, save_path, iterations=0):
+        state_dict = {
+            'decoder': self.decoder.state_dict(),
+            'transform': self.transform.state_dict()
+        }
+        torch.save(state_dict, save_path)
+
+    def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)
             style_feats = self.encode_rp_intermediate(style)
-            stylized= AdaIN(content_feats[-1], style_feats[-1])
-            stylized = self.decode(content_feats,style_feats)
+            stylized = self.decode(content_feats,style_feats,use_mask=self.config['use_mask'])
             self.train()
             return stylized
     
-    def decode(self,content_feats, style_feats):
+    def decode(self,content_feats, style_feats,use_mask=False,c_mask_path=None,s_mask_path=None):
         stylized= AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_decoder[0](stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
-            stylized = AdaIN(stylized, style_feat)
+            if use_mask:
+                stylized = []
+                for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
+                    stylized.append(AdaINSeg(cf, sf, c_mask_path, s_mask_path))
+                stylized = torch.stack(stylized)
+            else:
+                stylized = AdaIN(stylized, style_feat)
             stylized = self.rp_decoder[i+1](stylized)
         return stylized
 

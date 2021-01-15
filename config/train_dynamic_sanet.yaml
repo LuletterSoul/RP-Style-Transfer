@@ -36,19 +36,17 @@ spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
+ada_module: 'relu'
 
 # segmentation options
-
 class_num: 19
-
-
 
 # data options
 num_workers: 8                                            # number of data loading threads
 content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/default_st/test1
-output: output/0113_AdaptiveSANet_lr1e-4_cw1_sw1_fval0.4_visulized
+output: output/0115_AdaptiveSANet_lr1e-4_cw1_sw1_relu
 
 # dataset options 
 img_size: 512

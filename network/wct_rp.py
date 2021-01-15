@@ -1,6 +1,6 @@
 from .base import *
 from .base import adaptive_instance_normalization as AdaIN
-from .adain_rp import SegAdaINRPNet
+from .adain_rp import AdaINRPNet
 
 
 
@@ -136,7 +136,7 @@ class WCTRPNet(BaseNet):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def test(self, content, style,iterations=0,bid=0):
+    def test(self, content, style,iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
             content_feat = self.rp_shared_encoder(content)
