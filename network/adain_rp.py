@@ -156,13 +156,6 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
     
-    # def save(self, save_path, iterations=0):
-    #     state_dict = {
-    #         'decoder': self.decoder.state_dict(),
-    #         'transform': self.transform.state_dict()
-    #     }
-    #     torch.save(state_dict, save_path)
-
     def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
@@ -249,7 +242,9 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
             stylized = AdaIN(stylized, style_feat)
             stylized = getattr(self,f'rp_dec{i+1}')(stylized)
         return stylized   
-    
+
+    def save(self, save_path, iterations=0):
+        torch.save(self.state_dict(), save_path)
     
     def encode_rp_intermediate(self, input):
         results = [input]
