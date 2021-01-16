@@ -30,7 +30,7 @@
             "type": "python",
             "request": "launch",
             "program": "train.py",
-            "args": ["--config","config/train_multiscale_rp_adain.yaml"],
+            "args": ["--config","config/train_deeper_multiscale_rp_adain.yaml"],
             "console": "integratedTerminal"
         },
         {

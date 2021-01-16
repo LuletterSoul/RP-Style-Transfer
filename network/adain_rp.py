@@ -138,7 +138,7 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         self.config = config
         if self.config['enc_stack_way'] == StackType.Deeper:
            self.rp_shared_encoder = rp_deeper_conv_blocks(
-                            self.config['rp_blocks'], 3, self.config['hidden_dim'], inception_num=self.config['inception_num'])
+                            self.config['rp_blocks'], 3, self.config['hidden_dim'],self.encoder_out_dim, inception_num=self.config['inception_num'])
            self.rp_decoder = rp_shallower_conv_blocks(
                 self.config['rp_blocks'], self.decoder_in_dim, self.decoder_hidden_dim, 3)
 
@@ -156,19 +156,19 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
     
-    def save(self, save_path, iterations=0):
-        state_dict = {
-            'decoder': self.decoder.state_dict(),
-            'transform': self.transform.state_dict()
-        }
-        torch.save(state_dict, save_path)
+    # def save(self, save_path, iterations=0):
+    #     state_dict = {
+    #         'decoder': self.decoder.state_dict(),
+    #         'transform': self.transform.state_dict()
+    #     }
+    #     torch.save(state_dict, save_path)
 
     def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
         self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)
             style_feats = self.encode_rp_intermediate(style)
-            stylized = self.decode(content_feats,style_feats,use_mask=self.config['use_mask'])
+            stylized = self.decode(content_feats,style_feats,use_mask=self.config['use_mask'], c_mask_path=c_mask_path, s_mask_path=s_mask_path)
             self.train()
             return stylized
     
@@ -177,10 +177,10 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         stylized = self.rp_decoder[0](stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
             if use_mask:
-                stylized = []
+                mask_stylized = []
                 for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
-                    stylized.append(AdaINSeg(cf, sf, c_mask_path, s_mask_path))
-                stylized = torch.stack(stylized)
+                    mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(0), c_mask_path[bid], s_mask_path[bid]))
+                stylized = torch.cat(mask_stylized,dim=0)
             else:
                 stylized = AdaIN(stylized, style_feat)
             stylized = self.rp_decoder[i+1](stylized)

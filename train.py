@@ -111,6 +111,12 @@ elif opt['network'] == 'spade':
 
 network.train()
 network = network.cuda()
+
+
+# if opt['resume']:
+#     network.load_state_dict(torch.load(opt['checkpoint_path']))
+#     print('loaded.....')
+
 print(network)
 
 content_tf = train_transform(opt)
