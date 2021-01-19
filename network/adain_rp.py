@@ -44,7 +44,7 @@ class AdaINRPNet(BaseNet):
         self.rp_shared_encoder = build_increase_depth_rp_blocks(
             self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim)
 
-        #self.rp_style_encoder = build_increase_depth_rp_blocks(
+        # self.rp_style_encoder = build_increase_depth_rp_blocks(
         #    self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim)
 
         # build resolution perserving decoder, which is composed of blocks with decreasing depth.
@@ -79,11 +79,11 @@ class AdaINRPNet(BaseNet):
         return self.mse_loss(input_mean, target_mean) + \
             self.mse_loss(input_std, target_std)
 
-    def fuse(self,content_feats, style_feats):
+    def fuse(self, content_feats, style_feats):
         fusion = AdaIN(content_feats, style_feats)
         return fusion
 
-    def test(self, content, style,iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
+    def test(self, content, style, iterations=0, bid=0, c_mask_path=None, s_mask_path=None):
         with torch.no_grad():
             content_feat = self.rp_shared_encoder(content)
             style_feat = self.rp_shared_encoder(style)
@@ -98,8 +98,6 @@ class AdaINRPNet(BaseNet):
             'decoder': self.rp_decoder.state_dict()
         }
         torch.save(state_dict, save_path)
-
-
 
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
@@ -134,51 +132,52 @@ class AdaINRPNet(BaseNet):
 
 class MultiScaleAdaINRPNet(AdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
-        super().__init__(config,vgg_encoder)
+        super().__init__(config, vgg_encoder)
         self.config = config
         if self.config['enc_stack_way'] == StackType.Deeper:
-           self.rp_shared_encoder = rp_deeper_conv_blocks(
-                            self.config['rp_blocks'], 3, self.config['hidden_dim'],self.encoder_out_dim, inception_num=self.config['inception_num'])
-           self.rp_decoder = rp_shallower_conv_blocks(
+            self.rp_shared_encoder = rp_deeper_conv_blocks(
+                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'])
+            self.rp_decoder = rp_shallower_conv_blocks(
                 self.config['rp_blocks'], self.decoder_in_dim, self.decoder_hidden_dim, 3)
 
         elif self.config['enc_stack_way'] == StackType.Constant:
             self.encoder_out_dim = self.config['hidden_dim']
-            self.rp_shared_encoder =rp_constant_conv_blocks(
-                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim,inception_num=self.config['inception_num'])
+            self.rp_shared_encoder = rp_constant_conv_blocks(
+                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'])
             self.decoder_in_dim = self.encoder_out_dim
             self.rp_decoder = rp_constant_conv_blocks(
-                    self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
-    
+                self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
+
     def encode_rp_intermediate(self, input):
         results = [input]
         for i in range(len(self.rp_shared_encoder)):
             results.append(self.rp_shared_encoder[i](results[-1]))
         return results[1:]
-    
-    def test(self, content, style, iterations=0,bid=0,c_mask_path=None,s_mask_path=None):
+
+    def test(self, content, style, iterations=0, bid=0, c_mask_path=None, s_mask_path=None):
         self.eval()
         with torch.no_grad():
             content_feats = self.encode_rp_intermediate(content)
             style_feats = self.encode_rp_intermediate(style)
-            stylized = self.decode(content_feats,style_feats,use_mask=self.config['use_mask'], c_mask_path=c_mask_path, s_mask_path=s_mask_path)
+            stylized = self.decode(
+                content_feats, style_feats, use_mask=self.config['use_mask'], c_mask_path=c_mask_path, s_mask_path=s_mask_path)
             self.train()
             return stylized
-    
-    def decode(self,content_feats, style_feats,use_mask=False,c_mask_path=None,s_mask_path=None):
-        stylized= AdaIN(content_feats[-1], style_feats[-1])
+
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        stylized = AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_decoder[0](stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
             if use_mask:
                 mask_stylized = []
                 for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
-                    mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(0), c_mask_path[bid], s_mask_path[bid]))
-                stylized = torch.cat(mask_stylized,dim=0)
+                    mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
+                        0), c_mask_path[bid], s_mask_path[bid]))
+                stylized = torch.cat(mask_stylized, dim=0)
             else:
                 stylized = AdaIN(stylized, style_feat)
             stylized = self.rp_decoder[i+1](stylized)
         return stylized
-
 
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
@@ -217,39 +216,122 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
         super().__init__(config, vgg_encoder)
         hidden_dim = 8
 
-        self.layer_num = 5
+        self.config = config
+        self.inception_num = config['inception_num']
+        self.layer_num = config['ld_layer_num']
 
-        setattr(self,'rp_enc0_small_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
-        setattr(self,'rp_enc0_big_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
+        setattr(self, 'rp_enc0_small_revf', Conv2dBlock(
+            3, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+        setattr(self, 'rp_enc0_big_revf', Conv2dBlock(
+            3, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
 
         for i in range(self.layer_num-1):
-            hidden_dim *=2
-            setattr(self,f'rp_enc{i+1}_small_revf',Conv2dBlock(hidden_dim,hidden_dim,3,1,1,inception_num=1))
-            setattr(self,f'rp_enc{i+1}_big_revf',Conv2dBlock(hidden_dim,hidden_dim,7,1,3,inception_num=1))
-    
+            hidden_dim *= 2
+            setattr(self, f'rp_enc{i+1}_small_revf', Conv2dBlock(hidden_dim,
+                                                                 hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            setattr(self, f'rp_enc{i+1}_big_revf', Conv2dBlock(hidden_dim,
+                                                               hidden_dim, 7, 1, 3, inception_num=self.inception_num))
+
         for i in range(self.layer_num-1):
-            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
-            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
+            setattr(self, f'rp_dec{i}', Conv2dBlock(
+                hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            setattr(self, f'rp_dec{i}', Conv2dBlock(
+                hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
             hidden_dim //= 2
-        
-        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
-        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
 
-    def decode(self,content_feats, style_feats):
-        stylized= AdaIN(content_feats[-1], style_feats[-1])
+        setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
+            hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
+        setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
+            hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
+
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        stylized = AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_dec0(stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
-            stylized = AdaIN(stylized, style_feat)
-            stylized = getattr(self,f'rp_dec{i+1}')(stylized)
-        return stylized   
+            if use_mask:
+                mask_stylized = []
+                for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
+                    mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
+                        0), c_mask_path[bid], s_mask_path[bid]))
+                stylized = torch.cat(mask_stylized, dim=0)
+            else:
+                stylized = AdaIN(stylized, style_feat)
+            stylized = getattr(self, f'rp_dec{i+1}')(stylized)
+        return stylized
 
     def save(self, save_path, iterations=0):
         torch.save(self.state_dict(), save_path)
-    
+
     def encode_rp_intermediate(self, input):
         results = [input]
         for i in range(self.layer_num):
-            rp_enc_small_revf_feat = getattr(self, f'rp_enc{i}_small_revf')(results[-1])
-            rp_enc_big_revf_feat = getattr(self, f'rp_enc{i}_big_revf')(results[-1])
-            results.append(torch.cat([rp_enc_small_revf_feat,rp_enc_big_revf_feat],dim=1))
+            rp_enc_small_revf_feat = getattr(
+                self, f'rp_enc{i}_small_revf')(results[-1])
+            rp_enc_big_revf_feat = getattr(
+                self, f'rp_enc{i}_big_revf')(results[-1])
+            results.append(
+                torch.cat([rp_enc_small_revf_feat, rp_enc_big_revf_feat], dim=1))
+        return results[1:]
+
+
+class LDMSAdaINRPNet2(LDMSAdaINRPNet):
+    def __init__(self, config, vgg_encoder) -> None:
+        super().__init__(config, vgg_encoder)
+
+        hidden_dim = config['hidden_dim']
+
+        self.config = config
+        self.inception_num = config['inception_num']
+        self.layer_num = config['ld_layer_num']
+
+        setattr(self, 'rp_enc0_small_revf', Conv2dBlock(
+            3, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+        setattr(self, 'rp_enc0_big_revf', nn.Sequential(
+            nn.Conv2d(3, hidden_dim, (1, 1)), nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+            nn.ReLU(),  # relu1-1
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+            nn.ReLU(),  # relu1-2
+            nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+            nn.ReflectionPad2d((1, 1, 1, 1))))
+
+        for i in range(self.layer_num-1):
+            hidden_dim *= 2
+            setattr(self, f'rp_enc{i+1}_small_revf', Conv2dBlock(hidden_dim,
+                                                                 hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            setattr(self, f'rp_enc{i+1}_big_revf', nn.Sequential(
+                nn.Conv2d(hidden_dim, hidden_dim, (1, 1)
+                          ), nn.ReflectionPad2d((1, 1, 1, 1)),
+                nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+                nn.ReLU(),  # relu1-1
+                nn.ReflectionPad2d((1, 1, 1, 1)),
+                nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+                nn.ReLU(),  # relu1-2
+                nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+                nn.ReflectionPad2d((1, 1, 1, 1))))
+
+        for i in range(self.layer_num-1):
+            setattr(self, f'rp_dec{i}', Conv2dBlock(
+                hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            hidden_dim //= 2
+
+        setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
+            hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
+
+    def save(self, save_path, iterations=0):
+        torch.save(self.state_dict(), save_path)
+
+    def encode_rp_intermediate(self, input):
+        results = [input]
+        for i in range(self.layer_num):
+            rp_enc_small_revf_feat = getattr(
+                self, f'rp_enc{i}_small_revf')(results[-1])
+            rp_enc_big_revf_feat = getattr(
+                self, f'rp_enc{i}_big_revf')(results[-1])
+            size = rp_enc_small_revf_feat.size()[2:]
+            rp_enc_big_revf_feat = nn.functional.interpolate(
+                rp_enc_big_revf_feat, size)
+            results.append(
+                torch.cat([rp_enc_small_revf_feat, rp_enc_big_revf_feat], dim=1))
         return results[1:]

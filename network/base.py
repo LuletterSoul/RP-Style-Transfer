@@ -13,10 +13,12 @@ from PIL import Image
 
 torchvision.models.inception
 
+
 class StackType(object):
     Deeper = 'deeper'
     Shallower = 'shallower'
     Constant = 'constant'
+
 
 decoder = nn.Sequential(
     nn.ReflectionPad2d((1, 1, 1, 1)),
@@ -109,7 +111,7 @@ vgg = nn.Sequential(
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='lrelu', pad_type='zero',inception_num=None):
+                 padding=0, norm='none', activation='lrelu', pad_type='reflect', inception_num=None):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
@@ -165,7 +167,7 @@ class Conv2dBlock(nn.Module):
             self.inception = ModuleList()
             for i in range(inception_num):
                 self.inception.append(nn.Sequential(nn.Conv2d(output_dim, output_dim,
-                                  1, 1, bias=self.use_bias)))
+                                                              1, 1, bias=self.use_bias)))
             self.inception = nn.Sequential(*self.inception)
         else:
             self.inception = None
@@ -181,7 +183,7 @@ class Conv2dBlock(nn.Module):
         return x
 
 
-def build_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu'):
+def build_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu'):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -193,24 +195,25 @@ def build_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                    output_dim=hidden_dim,
-                                    kernel_size=ks,
-                                    stride=stride,
-                                    padding=pd,
-                                    activation=activation))
+                                     output_dim=hidden_dim,
+                                     kernel_size=ks,
+                                     stride=stride,
+                                     padding=pd,
+                                     activation=activation))
 
         hidden_dim *= 2
 
     rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                output_dim=out_dim,
-                                kernel_size=ks,
-                                stride=stride,
-                                padding=pd,
-                                activation=activation))
+                                 output_dim=out_dim,
+                                 kernel_size=ks,
+                                 stride=stride,
+                                 padding=pd,
+                                 activation=activation))
 
     return nn.Sequential(*rp_blocks)
 
-def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',inception_num=None):
+
+def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu', inception_num=None):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -218,28 +221,28 @@ def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation,inception_num=inception_num))
+                                 activation=activation, inception_num=inception_num))
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                    output_dim=hidden_dim * 2,
-                                    kernel_size=ks,
-                                    stride=stride,
-                                    padding=pd,
-                                    activation=activation,inception_num=inception_num))
+                                     output_dim=hidden_dim * 2,
+                                     kernel_size=ks,
+                                     stride=stride,
+                                     padding=pd,
+                                     activation=activation, inception_num=inception_num))
         hidden_dim *= 2
-            
 
     rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                output_dim=out_dim,
-                                kernel_size=ks,
-                                stride=stride,
-                                padding=pd,
-                                activation=activation,inception_num=inception_num))
+                                 output_dim=out_dim,
+                                 kernel_size=ks,
+                                 stride=stride,
+                                 padding=pd,
+                                 activation=activation, inception_num=inception_num))
 
     return rp_blocks
 
-def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',inception_num=None):
+
+def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu', inception_num=None):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -247,28 +250,27 @@ def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation,inception_num=inception_num))
+                                 activation=activation, inception_num=inception_num))
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                    output_dim=hidden_dim,
-                                    kernel_size=ks,
-                                    stride=stride,
-                                    padding=pd,
-                                    activation=activation,inception_num=inception_num))
-            
+                                     output_dim=hidden_dim,
+                                     kernel_size=ks,
+                                     stride=stride,
+                                     padding=pd,
+                                     activation=activation, inception_num=inception_num))
 
     rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                output_dim=out_dim,
-                                kernel_size=ks,
-                                stride=stride,
-                                padding=pd,
-                                activation=activation,inception_num=inception_num))
+                                 output_dim=out_dim,
+                                 kernel_size=ks,
+                                 stride=stride,
+                                 padding=pd,
+                                 activation=activation, inception_num=inception_num))
 
     return rp_blocks
 
 
-def rp_shallower_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1,activation='lrelu',incread_depth=True):
+def rp_shallower_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu', incread_depth=True):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -280,22 +282,22 @@ def rp_shallower_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, strid
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                    output_dim=hidden_dim // 2,
-                                    kernel_size=ks,
-                                    stride=stride,
-                                    padding=pd,
-                                    activation=activation))
+                                     output_dim=hidden_dim // 2,
+                                     kernel_size=ks,
+                                     stride=stride,
+                                     padding=pd,
+                                     activation=activation))
         hidden_dim //= 2
-            
 
     rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
-                                output_dim=out_dim,
-                                kernel_size=ks,
-                                stride=stride,
-                                padding=pd,
-                                activation=activation))
+                                 output_dim=out_dim,
+                                 kernel_size=ks,
+                                 stride=stride,
+                                 padding=pd,
+                                 activation=activation))
 
     return rp_blocks
+
 
 def cal_affinity_map(content_feat, style_feat, k=3, reverse=False, c_mask=None, s_mask=None):
     assert content_feat.size() == style_feat.size()
@@ -343,7 +345,6 @@ def cal_dist(A, B):
     return dist
 
 
-
 def build_increase_depth_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1):
     rp_blocks = ModuleList()
     rp_blocks.append(
@@ -362,7 +363,6 @@ def build_increase_depth_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3,
     return nn.Sequential(*rp_blocks)
 
 
-
 def build_decrease_depth_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1):
     rp_blocks = ModuleList()
     rp_blocks.append(
@@ -378,7 +378,6 @@ def build_decrease_depth_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3,
                                kernel_size=ks, padding=pd))
     rp_blocks.append(nn.ReLU(inplace=True))
     return nn.Sequential(*rp_blocks)
-
 
 
 def calc_mean_std(feat, eps=1e-5):
@@ -402,6 +401,7 @@ def adaptive_instance_normalization(content_feat, style_feat):
         size)) / content_std.expand(size)
     return normalized_feat * style_std.expand(size) + style_mean.expand(size)
 
+
 def compute_label_info(content_segment, style_segment):
     if not content_segment.size or not style_segment.size:
         return None, None
@@ -409,8 +409,10 @@ def compute_label_info(content_segment, style_segment):
     label_set = np.unique(content_segment)
     label_indicator = np.zeros(max_label)
     for l in label_set:
-        content_mask = np.where(content_segment.reshape(content_segment.shape[0] * content_segment.shape[1]) == l)
-        style_mask = np.where(style_segment.reshape(style_segment.shape[0] * style_segment.shape[1]) == l)
+        content_mask = np.where(content_segment.reshape(
+            content_segment.shape[0] * content_segment.shape[1]) == l)
+        style_mask = np.where(style_segment.reshape(
+            style_segment.shape[0] * style_segment.shape[1]) == l)
 
         c_size = content_mask[0].size
         s_size = style_mask[0].size
@@ -419,6 +421,7 @@ def compute_label_info(content_segment, style_segment):
         else:
             label_indicator[l] = False
     return label_set, label_indicator
+
 
 def get_segment_and_info(content_seg_path, style_seg_path, content_shape, style_shape):
     """
@@ -430,15 +433,18 @@ def get_segment_and_info(content_seg_path, style_seg_path, content_shape, style_
     """
     c_seg = np.asarray(Image.open(content_seg_path).resize(content_shape))
     s_seg = np.asarray(Image.open(style_seg_path).resize(style_shape))
-    print(f'content_seg_label={np.unique(c_seg)}， style_seg_label={np.unique(s_seg)}')
+    print(
+        f'content_seg_label={np.unique(c_seg)}， style_seg_label={np.unique(s_seg)}')
     label_set, label_indicator = compute_label_info(c_seg, s_seg)
     return c_seg, s_seg, label_set, label_indicator
+
 
 def get_index(feat, label, device):
     mask = np.where(feat.reshape(feat.shape[0] * feat.shape[1]) == label)
     if mask[0].size <= 0:
         return None
     return torch.LongTensor(mask[0]).to(device)
+
 
 def calc_mean_std_for_masked_feat(masked_feat, eps=1e-5):
     """
@@ -452,6 +458,7 @@ def calc_mean_std_for_masked_feat(masked_feat, eps=1e-5):
     feat_mean = masked_feat.mean(dim=1).view(c, 1)
     return feat_mean, feat_std
 
+
 def adaptive_instance_normalization_for_masked_feat(masked_content_feat, masked_style_feat):
     """
     :param masked_content_feat: (c, nc)
@@ -459,11 +466,14 @@ def adaptive_instance_normalization_for_masked_feat(masked_content_feat, masked_
     :return: (c, nc)
     """
     size = masked_content_feat.size()
-    content_mean, content_std = calc_mean_std_for_masked_feat(masked_content_feat)
+    content_mean, content_std = calc_mean_std_for_masked_feat(
+        masked_content_feat)
     style_mean, style_std = calc_mean_std_for_masked_feat(masked_style_feat)
     # print(f'masked_content_feat.size={masked_content_feat.size()}, content_mean.size={content_mean.size()}')
-    normalized_feat = (masked_content_feat - content_mean.expand(size)) / content_std.expand(size)
+    normalized_feat = (masked_content_feat -
+                       content_mean.expand(size)) / content_std.expand(size)
     return normalized_feat * style_std.expand(size) + style_mean.expand(size)
+
 
 def adaptive_instance_normalization_with_segment(content_feat, style_feat, content_seg_path, style_seg_path):
     """
@@ -492,11 +502,15 @@ def adaptive_instance_normalization_with_segment(content_feat, style_feat, conte
         style_index = get_index(s_seg, label, device)
         if content_index is None or style_index is None:
             continue
-        masked_content_feat = torch.index_select(content_feat, dim=1, index=content_index)
-        masked_style_feat = torch.index_select(style_feat, dim=1, index=style_index)
-        normalized_feat = adaptive_instance_normalization_for_masked_feat(masked_content_feat, masked_style_feat)
+        masked_content_feat = torch.index_select(
+            content_feat, dim=1, index=content_index)
+        masked_style_feat = torch.index_select(
+            style_feat, dim=1, index=style_index)
+        normalized_feat = adaptive_instance_normalization_for_masked_feat(
+            masked_content_feat, masked_style_feat)
         target_feat.index_copy_(1, content_index, normalized_feat)
-    target_feat = target_feat.view(content_feat_size[1], content_feat_size[2], content_feat_size[3]).unsqueeze(0)
+    target_feat = target_feat.view(
+        content_feat_size[1], content_feat_size[2], content_feat_size[3]).unsqueeze(0)
     return target_feat
 
 
@@ -559,10 +573,11 @@ class Net(nn.Module):
             loss_s += self.calc_style_loss(g_t_feats[i], style_feats[i])
         return loss_c, loss_s
 
+
 class BaseNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-    
+
     @abstractmethod
     def test(self, content, style, iterations=0):
         pass
@@ -572,14 +587,12 @@ class BaseNet(nn.Module):
         pass
 
     @abstractmethod
-    def decode(self,content_feats, style_feats):
+    def decode(self, content_feats, style_feats):
         pass
-
 
     @abstractmethod
-    def fuse(self,content_feats, style_feats):
+    def fuse(self, content_feats, style_feats):
         pass
-
 
     @abstractmethod
     def encode_with_intermediate(self, input):
@@ -588,6 +601,3 @@ class BaseNet(nn.Module):
     @abstractmethod
     def save(self, save_path):
         pass
-
-       
-        

@@ -100,6 +100,8 @@ elif opt['network'] == 'wct':
     network = net.WCTRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain':
     network = net.LDMSAdaINRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'ld_adain2':
+    network = net.LDMSAdaINRPNet2(opt, vgg_relu4_1)
 elif opt['network'] == 'dynamic_sanet':
     network = net.AdaptiveSAModel(opt, vgg, opt['start_iter'], opt['img_size'])
 elif opt['network'] == 'sanet':
