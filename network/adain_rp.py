@@ -2,6 +2,7 @@ from torch import stack
 from .base import *
 from .base import adaptive_instance_normalization as AdaIN
 from .base import adaptive_instance_normalization_with_segment as AdaINSeg
+import os
 
 
 class AdaINRPNet(BaseNet):
@@ -134,6 +135,8 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
         super().__init__(config, vgg_encoder)
         self.config = config
+        self.rp_shared_encoder = None
+        self.rp_decoder = None
         if self.config['enc_stack_way'] == StackType.Deeper:
             self.rp_shared_encoder = rp_deeper_conv_blocks(
                 self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'])
@@ -147,6 +150,15 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
             self.decoder_in_dim = self.encoder_out_dim
             self.rp_decoder = rp_constant_conv_blocks(
                 self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
+
+        if self.config['resume']:
+            checkpoint_path = self.config['checkpoint_path']
+            self.begin = int(os.path.splitext(
+                os.path.basename(checkpoint_path))[0])
+            state_dict = torch.load(self.config['checkpoint_path'])
+            self.rp_shared_encoder.load_state_dict(state_dict['encoder'])
+            self.rp_decoder.load_state_dict(state_dict['decoder'])
+            print(f'Loaded checkpoint from {checkpoint_path}')
 
     def encode_rp_intermediate(self, input):
         results = [input]
@@ -259,9 +271,6 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
             stylized = getattr(self, f'rp_dec{i+1}')(stylized)
         return stylized
 
-    def save(self, save_path, iterations=0):
-        torch.save(self.state_dict(), save_path)
-
     def encode_rp_intermediate(self, input):
         results = [input]
         for i in range(self.layer_num):
@@ -318,9 +327,6 @@ class LDMSAdaINRPNet2(LDMSAdaINRPNet):
 
         setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
             hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
-
-    def save(self, save_path, iterations=0):
-        torch.save(self.state_dict(), save_path)
 
     def encode_rp_intermediate(self, input):
         results = [input]

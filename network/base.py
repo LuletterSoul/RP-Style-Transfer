@@ -577,6 +577,7 @@ class Net(nn.Module):
 class BaseNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
+        self.begin = 0
 
     @abstractmethod
     def test(self, content, style, iterations=0):
@@ -598,6 +599,5 @@ class BaseNet(nn.Module):
     def encode_with_intermediate(self, input):
         pass
 
-    @abstractmethod
-    def save(self, save_path):
-        pass
+    def save(self, save_path, iterations=0):
+        torch.save(self.state_dict(), save_path)

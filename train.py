@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 def train_transform(config):
     transform_list = [
-        transforms.Resize(size=(config['img_size'],config['img_size'])),
+        transforms.Resize(size=(config['img_size'], config['img_size'])),
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
@@ -48,18 +48,17 @@ def train_transform(config):
 
 def test_transfrom(config):
     transform_list = [
-        transforms.Resize(size=(config['img_size'],config['img_size'])),
+        transforms.Resize(size=(config['img_size'], config['img_size'])),
         transforms.ToTensor()
     ]
     return transforms.Compose(transform_list)
 
 
-def adjust_learning_rate(opt,optimizer, iteration_count):
+def adjust_learning_rate(opt, optimizer, iteration_count):
     """Imitating the original implementation"""
     lr = opt['lr'] / (1.0 + opt['lr_decay'] * iteration_count)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-
 
 
 parser = argparse.ArgumentParser()
@@ -139,8 +138,8 @@ if opt['test_dataset'] == 'photoreal':
 elif opt['test_dataset'] == 'fmt':
     test_dataset = FmtDataset(opt['test_dir'], test_tf)
 elif opt['test_dataset'] == 'paired':
-     test_dataset = PariedDataset(opt['test_dir'], test_tf)
-    
+    test_dataset = PariedDataset(opt['test_dir'], test_tf)
+
 
 content_iter = iter(data.DataLoader(
     content_dataset, batch_size=opt['batch_size'],
@@ -156,21 +155,20 @@ test_dataloader = data.DataLoader(
 
 optimizer = torch.optim.Adam(network.parameters(), lr=opt['lr'])
 # optimizer = torch.optim.Adam([
-                            #   {'params': network.decoder.parameters()},
-                            #   {'params': network.transform.parameters()}], lr=opt['lr'])
+#   {'params': network.decoder.parameters()},
+#   {'params': network.transform.parameters()}], lr=opt['lr'])
 
 for i in range(1, opt['max_iter']):
 
     try:
         start = time.time()
         optimizer.zero_grad()
-        adjust_learning_rate(opt,optimizer, iteration_count=i)
+        adjust_learning_rate(opt, optimizer, iteration_count=i)
         content_images = next(content_iter).cuda().detach()
         style_images = next(style_iter).cuda().detach()
         # loss_mrf, loss_c, loss_s = network(content_images, style_images)
         loss_dict, total_loss = network(content_images, style_images)
         # loss = loss_c + loss_s + loss_mrf
-
 
         total_loss.backward()
         optimizer.step()
@@ -180,18 +178,20 @@ for i in range(1, opt['max_iter']):
         eclipse_time = round(end - start, 2)
         loss_str = ''
         for key, loss_item in loss_dict.items():
-            writer.add_scalar(key, loss_item, i)
+            writer.add_scalar(key, loss_item, i + network.begin)
             loss_str += f', {key} {loss_item}'
 
         if i % opt['test_iter'] == 0:
-            for idx, (content_images, style_images, content_name, style_name,c_mask_path,s_mask_path) in enumerate(test_dataloader):
+            for idx, (content_images, style_images, content_name, style_name, c_mask_path, s_mask_path) in enumerate(test_dataloader):
                 content_images = content_images.cuda()
                 style_images = style_images.cuda()
-                stylizeds = network.test(content_images, style_images,iterations=i,bid=idx,c_mask_path=c_mask_path,s_mask_path=s_mask_path)
-                output_dir = test_dir / f'{i}'
+                stylizeds = network.test(content_images, style_images, iterations=i,
+                                         bid=idx, c_mask_path=c_mask_path, s_mask_path=s_mask_path)
+                output_dir = test_dir / f'{network.begin + i}'
                 output_dir.mkdir(exist_ok=True, parents=True)
                 for b_idx, (content_img, style_img, stylized, cn, sn) in enumerate(zip(content_images, style_images, stylizeds, content_name, style_name)):
-                    images = torch.stack([content_img, style_img, stylized], dim=0)
+                    images = torch.stack(
+                        [content_img, style_img, stylized], dim=0)
                     cat_output_path = output_dir / \
                         f'{cn}-{sn}-cat.png'
                     stylized_output_path = output_dir / \
@@ -204,12 +204,12 @@ for i in range(1, opt['max_iter']):
 
         if i % opt['log_iter'] == 0:
             logger.info(
-                f'Iterations {i}, elapsed time: {eclipse_time} {loss_str}')
+                f'Iterations {network.begin + i}, elapsed time: {eclipse_time} {loss_str}')
 
         if i % opt['snapshot_save_iter'] == 0 or (i + 1) == opt['max_iter']:
             # torch.save(network.state_dict(), checkpoint_dir /
-                    #    f'{i}.pth')
-            network.save(checkpoint_dir / f'{i}.pth',iterations=i)
+            #    f'{i}.pth')
+            network.save(checkpoint_dir / f'{network.begin + i}', iterations=i)
     except Exception as e:
         traceback.print_exc()
         pass
