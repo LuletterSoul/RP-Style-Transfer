@@ -31,12 +31,12 @@ inception_num: 0          # 1 * 1 Conv
 enc_stack_way: 'constant'
 k: 5
 fusion_block: 5
-network: multi_adain
+network: sel_multi_adain
 spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-attention: se
+attention: none
 
 # segmentation options
 
@@ -52,7 +52,7 @@ style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
 checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim128_cw1_sw1/checkpoints/30000.pth
-output: output/0123_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_se_last
+output: output/0123_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_se_fusion
 resume: False
 use_mask: True
 

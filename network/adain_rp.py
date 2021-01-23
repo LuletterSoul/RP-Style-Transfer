@@ -231,6 +231,39 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         }, total_loss
 
 
+class SELastMultiScaleAdaINRPNet(MultiScaleAdaINRPNet):
+    """use se attention after Adain fusion
+
+    Args:
+        MultiScaleAdaINRPNet ([type]): [description]
+    """
+
+    def __init__(self, config, vgg_encoder) -> None:
+        super().__init__(config, vgg_encoder)
+        self.attention_block = SEBottleneck(
+            inplanes=self.config['hidden_dim'], planes=self.config['hidden_dim'])
+
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        stylized = AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.rp_decoder[0](stylized)
+        reverse_feat_pairs = list(
+            zip(content_feats[:-1], style_feats[:-1]))[::-1]
+        for i, (content_feat, style_feat) in enumerate(reverse_feat_pairs):
+            if use_mask:
+                mask_stylized = []
+                for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
+                    mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
+                        0), c_mask_path[bid], s_mask_path[bid]))
+                stylized = torch.cat(mask_stylized, dim=0)
+            else:
+                stylized = AdaIN(stylized, style_feat)
+                if i == len(reverse_feat_pairs) - 1:
+                    # adopts se attention on fusion features for content and style
+                    stylized = self.attention_block(stylized)
+            stylized = self.rp_decoder[i+1](stylized)
+        return stylized
+
+
 class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
     def __init__(self, config, vgg_encoder) -> None:
         super().__init__(config, vgg_encoder)

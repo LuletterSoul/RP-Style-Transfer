@@ -95,6 +95,8 @@ if opt['network'] == 'adain':
     network = net.AdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'multi_adain':
     network = net.MultiScaleAdaINRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'sel_multi_adain':
+    network = net.SELastMultiScaleAdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'wct':
     network = net.WCTRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain':

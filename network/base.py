@@ -263,7 +263,7 @@ def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation, inception_num=inception_num))
+                                 activation=activation, inception_num=inception_num, attention=False))
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
@@ -271,7 +271,7 @@ def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride
                                      kernel_size=ks,
                                      stride=stride,
                                      padding=pd,
-                                     activation=activation, inception_num=inception_num))
+                                     activation=activation, inception_num=inception_num, attention=attention))
 
     rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
                                  output_dim=out_dim,
