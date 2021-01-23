@@ -146,10 +146,18 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         elif self.config['enc_stack_way'] == StackType.Constant:
             self.encoder_out_dim = self.config['hidden_dim']
             self.rp_shared_encoder = rp_constant_conv_blocks(
-                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'])
+                self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'], attention=self.config['attention'])
             self.decoder_in_dim = self.encoder_out_dim
             self.rp_decoder = rp_constant_conv_blocks(
                 self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
+
+        # elif self.config['enc_stack_way'] == StackType.DShallower:
+        #     self.encoder_out_dim = self.config['hidden_dim']
+        #     self.rp_shared_encoder = rp_constant_conv_blocks(
+        #         self.config['rp_blocks'], 3, self.config['hidden_dim'], self.encoder_out_dim, inception_num=self.config['inception_num'], se=self.config['se'])
+        #     self.decoder_in_dim = self.encoder_out_dim
+        #     self.rp_decoder = rp_constant_conv_blocks(
+        #         self.config['rp_blocks'], self.decoder_in_dim, self.config['hidden_dim'], 3)
 
         if self.config['resume']:
             checkpoint_path = self.config['checkpoint_path']

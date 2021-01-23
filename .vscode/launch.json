@@ -47,9 +47,8 @@
             "console": "integratedTerminal"
         },
         {
-            
             "env": {
-                "CUDA_VISIBLE_DEVICES": "0"
+                "CUDA_VISIBLE_DEVICES": "3"
             },
             "name": "train_constant_multiscale_rp_adain",
             "type": "python",

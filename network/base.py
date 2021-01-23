@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from torch.nn.modules.loss import MSELoss
 import torchvision
 from PIL import Image
+from .attention import *
 
 torchvision.models.inception
 
@@ -18,6 +19,7 @@ class StackType(object):
     Deeper = 'deeper'
     Shallower = 'shallower'
     Constant = 'constant'
+    DShallower = 'dec_shallower'
 
 
 decoder = nn.Sequential(
@@ -111,7 +113,7 @@ vgg = nn.Sequential(
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='lrelu', pad_type='reflect', inception_num=None):
+                 padding=0, norm='none', activation='lrelu', pad_type='reflect', inception_num=None, attention=None):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
@@ -172,6 +174,15 @@ class Conv2dBlock(nn.Module):
         else:
             self.inception = None
 
+        if attention == 'se':
+            self.attention_block = SEBottleneck(
+                inplanes=output_dim, planes=output_dim)
+        elif attention == 'sk':
+            self.attention_block = SKBottleneck(
+                inplanes=output_dim, planes=output_dim)
+        else:
+            self.attention_block = None
+
     def forward(self, x):
         x = self.conv(self.pad(x))
         if self.inception:
@@ -180,6 +191,8 @@ class Conv2dBlock(nn.Module):
             x = self.norm(x)
         if self.activation:
             x = self.activation(x)
+        if self.attention_block:
+            x = self.attention_block(x)
         return x
 
 
@@ -242,7 +255,7 @@ def rp_deeper_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1
     return rp_blocks
 
 
-def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu', inception_num=None):
+def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1, activation='lrelu', inception_num=None, attention=False):
     rp_blocks = ModuleList()
 
     rp_blocks.append(Conv2dBlock(input_dim=in_dim,
@@ -265,7 +278,7 @@ def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation, inception_num=inception_num))
+                                 activation=activation, inception_num=inception_num, attention=attention))
 
     return rp_blocks
 
