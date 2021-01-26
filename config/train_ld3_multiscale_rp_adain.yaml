@@ -1,8 +1,8 @@
 # logger options
-snapshot_save_iter: 10000 # How often do you want to save trained models
+snapshot_save_iter: 10000    # How often do you want to save trained models
 image_save_iter: 1
 log_iter: 1                 # How often do you want to log the training stats
-test_iter: 5000
+test_iter: 10000
 
 # optimization options
 max_iter: 1000000             # maximum number of training iterations
@@ -11,7 +11,7 @@ weight_decay: 0.0001          # weight decay
 beta1: 0.5                    # Adam parameter
 beta2: 0.999                  # Adam parameter
 init: orthogonal                 # initialization [gaussian/kaiming/xavier/orthogonal]
-lr: 0.0001                     # initial learning rate
+lr: 0.001                     # initial learning rate
 lr_decay: 0.00001             # initial learning rate
 lr_policy: step               # learning rate scheduler
 step_size: 10000              # how often to decay learning rate
@@ -26,17 +26,19 @@ mrf_weight: 0                    # loss weight
 vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
-hidden_dim : 64
+hidden_dim : 32
+ld_layer_num: 5
 inception_num: 0          # 1 * 1 Conv
-enc_stack_way: 'constant'
+enc_stack_way: 'NONE'
 k: 5
 fusion_block: 5
-network: multi_adain
+network: ld_adain3
 spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-attention: none
+stylized_layers: 5
+
 
 # segmentation options
 
@@ -51,10 +53,12 @@ content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
-checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim128_cw1_sw1/checkpoints/30000.pth
-output: output/0123_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_se_fusion
-resume: True
+checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_cw1_sw1/checkpoints/55000.pth
+output: output/0126_ld3_lr-4_hiddim32_s5
+resume: False
 use_mask: True
+
+
 
 # dataset options 
 test_dataset: 'photoreal'
