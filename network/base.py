@@ -109,7 +109,7 @@ vgg = nn.Sequential(
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride,
-                 padding=0, norm='none', activation='lrelu', pad_type='zero',inception_num=None):
+                 padding=0, norm='none', activation='lrelu', pad_type='reflect',inception_num=None):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding

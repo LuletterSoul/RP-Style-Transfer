@@ -194,6 +194,14 @@ def crop_original(method_dirs):
 def compared_rp_net():
     content_dir = '/data/lxd/datasets/photo_data/content'
     style_dir = '/data/lxd/datasets/photo_data/style'
+    # compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000/crop', 
+    #                         'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000/crop',
+    #                         'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000/crop',
+    #                         'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/200000/crop',
+    #                         'output/baselines/DPST', 
+    #                         'output/baselines/LST', 
+    #                         'output/baselines/PhotoWCT',
+    #                         'output/baselines/WCT2']
     compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000/crop', 
                             'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000/crop',
                             'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000/crop',

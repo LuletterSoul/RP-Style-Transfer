@@ -27,7 +27,8 @@ vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
 hidden_dim : 16
-inception_num: 0          # 1 * 1 Conv
+ld_layer_num: 10
+inception_num: 1          # 1 * 1 Conv
 enc_stack_way: 'NONE'
 k: 5
 fusion_block: 5
@@ -46,10 +47,16 @@ class_num: 19
 # data options
 num_workers: 8                                            # number of data loading threads
 img_size: 512
-content_dir: /data/jsy/datasets/COCO2017/train2017
-style_dir: /data/jsy/datasets/wikiart/wikiart
+content_dir: /home/jsy/datasets/train2017
+style_dir: /home/jsy/datasets/wikiart
 test_dir: /data/lxd/datasets/photo_data
-output: output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1
+seg_dir: /data/lxd/datasets/photo_data/segmentation
+checkpoint_path: output/0106_LDAdaINRPNet_lr1e-3_cw1_sw1/checkpoints/110000.pth
+output: output/0116_MultiAdaINRPNet_constant_rp10_incep3_lr1e-4_hiddim32_cw1_sw1
+resume: False
+use_mask: True
+
+
 
 # dataset options 
 test_dataset: 'photoreal'

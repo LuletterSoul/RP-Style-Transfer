@@ -217,23 +217,25 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
         super().__init__(config, vgg_encoder)
         hidden_dim = 8
 
-        self.layer_num = 5
+        self.config = config
+        self.inception_num = config['inception_num']
+        self.layer_num = config['ld_layer_num']
 
-        setattr(self,'rp_enc0_small_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
-        setattr(self,'rp_enc0_big_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=1))
+        setattr(self,'rp_enc0_small_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=self.inception_num))
+        setattr(self,'rp_enc0_big_revf',Conv2dBlock(3,hidden_dim,3,1,1,inception_num=self.inception_num))
 
         for i in range(self.layer_num-1):
             hidden_dim *=2
-            setattr(self,f'rp_enc{i+1}_small_revf',Conv2dBlock(hidden_dim,hidden_dim,3,1,1,inception_num=1))
-            setattr(self,f'rp_enc{i+1}_big_revf',Conv2dBlock(hidden_dim,hidden_dim,7,1,3,inception_num=1))
+            setattr(self,f'rp_enc{i+1}_small_revf',Conv2dBlock(hidden_dim,hidden_dim,3,1,1,inception_num=self.inception_num))
+            setattr(self,f'rp_enc{i+1}_big_revf',Conv2dBlock(hidden_dim,hidden_dim,7,1,3,inception_num=self.inception_num))
     
         for i in range(self.layer_num-1):
-            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
-            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=1))
+            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=self.inception_num))
+            setattr(self,f'rp_dec{i}',Conv2dBlock(hidden_dim * 2,hidden_dim,3,1,1,inception_num=self.inception_num))
             hidden_dim //= 2
         
-        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
-        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=1))
+        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=self.inception_num))
+        setattr(self,f'rp_dec{self.layer_num-1}',Conv2dBlock(hidden_dim * 2,3,3,1,1,inception_num=self.inception_num))
 
     def decode(self,content_feats, style_feats):
         stylized= AdaIN(content_feats[-1], style_feats[-1])
