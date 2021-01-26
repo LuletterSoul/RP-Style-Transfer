@@ -37,7 +37,7 @@ spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-stylized_layers: 5
+stylized_layers: 2
 
 
 # segmentation options
@@ -54,7 +54,7 @@ style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
 checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_cw1_sw1/checkpoints/55000.pth
-output: output/0126_ld3_lr-4_hiddim32_s5
+output: output/0126_ld3_lr-4_hiddim32_s2
 resume: False
 use_mask: True
 
