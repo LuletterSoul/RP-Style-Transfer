@@ -36,6 +36,7 @@ spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
+stylized_layers: 5
 
 # segmentation options
 
@@ -49,7 +50,11 @@ img_size: 512
 content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
-output: output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1
+seg_dir: /data/lxd/datasets/photo_data/segmentation
+checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1/checkpoints/230000.pth
+output: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1
+resume: True
+use_mask: True
 
 # dataset options 
 test_dataset: 'photoreal'

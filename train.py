@@ -139,6 +139,8 @@ style_dataset = Dataset(
 
 if opt['test_dataset'] == 'photoreal':
     test_dataset = PhotorealisticPariedDataset(opt['test_dir'], test_tf)
+if opt['test_dataset'] == 'iden_photoreal':
+    test_dataset = IdentityDataset(opt['test_dir'], test_tf)
 elif opt['test_dataset'] == 'fmt':
     test_dataset = FmtDataset(opt['test_dir'], test_tf)
 elif opt['test_dataset'] == 'paired':

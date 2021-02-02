@@ -17,7 +17,7 @@ lr_policy: step               # learning rate scheduler
 step_size: 10000              # how often to decay learning rate
 gamma: 0.5                    # how much to decay learning rate
 content_weight: 1                # loss weight
-style_weight: 1                  # loss weight
+style_weight: 0                  # loss weight
 mrf_weight: 0                    # loss weight
 
 
@@ -26,7 +26,7 @@ mrf_weight: 0                    # loss weight
 vgg: models/vgg_normalised.pth
 rp_blocks: 5
 in_dim: 3
-hidden_dim : 64
+hidden_dim : 32
 inception_num: 0          # 1 * 1 Conv
 enc_stack_way: 'constant'
 k: 5
@@ -36,7 +36,7 @@ spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-attention: none
+attention: se
 
 # segmentation options
 
@@ -52,8 +52,8 @@ style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
 checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim128_cw1_sw1/checkpoints/30000.pth
-output: output/0123_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_se_fusion
-resume: True
+output: output/0130_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon
+resume: False
 use_mask: True
 
 # dataset options 

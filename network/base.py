@@ -263,7 +263,7 @@ def rp_constant_conv_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride
                                  kernel_size=ks,
                                  stride=stride,
                                  padding=pd,
-                                 activation=activation, inception_num=inception_num, attention=False))
+                                 activation=activation, inception_num=inception_num, attention=attention))
 
     for i in range(0, block_num-2):
         rp_blocks.append(Conv2dBlock(input_dim=hidden_dim,
@@ -359,6 +359,7 @@ def cal_dist(A, B):
 
 
 def build_increase_depth_rp_blocks(block_num, in_dim, hidden_dim, out_dim, ks=3, stride=1, pd=1):
+
     rp_blocks = ModuleList()
     rp_blocks.append(
         nn.Conv2d(in_dim, hidden_dim, kernel_size=ks, stride=stride, padding=pd))

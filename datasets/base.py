@@ -3,6 +3,7 @@ from pathlib import Path
 from PIL import Image
 import os
 
+
 class FlatFolderDataset(data.Dataset):
     def __init__(self, root, transform, fmt='*/P*', root2=None):
         super(FlatFolderDataset, self).__init__()
@@ -46,6 +47,7 @@ class Dataset(data.Dataset):
     def name(self):
         return 'FlatFolderDataset'
 
+
 class PariedDataset(data.Dataset):
     def __init__(self, root, transform):
         super(PariedDataset, self).__init__()
@@ -75,7 +77,7 @@ class PariedDataset(data.Dataset):
         content_img = self.transform(content_img)
         style_img = self.transform(style_img)
 
-        return content_img, style_img, os.path.splitext(os.path.basename(str(content_path)))[0], os.path.splitext(os.path.basename(str(style_path)))[0],[],[]
+        return content_img, style_img, os.path.splitext(os.path.basename(str(content_path)))[0], os.path.splitext(os.path.basename(str(style_path)))[0], [], []
 
     def __len__(self):
         return len(self.content_names)
@@ -118,15 +120,49 @@ class PhotorealisticPariedDataset(data.Dataset):
         c_name = os.path.splitext(os.path.basename(str(content_path)))[0]
         s_name = os.path.splitext(os.path.basename(str(style_path)))[0]
 
-        c_mask_path =  os.path.join(self.seg_dir, f'{c_name}.png')
+        c_mask_path = os.path.join(self.seg_dir, f'{c_name}.png')
         s_mask_path = os.path.join(self.seg_dir, f'{s_name}.png')
-        return content_img, style_img, c_name, s_name,c_mask_path, s_mask_path
+        return content_img, style_img, c_name, s_name, c_mask_path, s_mask_path
 
     def __len__(self):
         return len(self.content_names)
 
     def name(self):
         return 'PairedDataset'
+
+
+class IdentityDataset(PhotorealisticPariedDataset):
+    def __init__(self, root, transform):
+        super().__init__(root, transform)
+
+    def __getitem__(self, index):
+
+        content_path = os.path.join(
+            self.content_dir, self.content_names[index])
+
+        style_name = 'tar{}'.format(
+            self.content_names[index].replace('in', ''))
+
+        style_path = os.path.join(self.style_dir, style_name)
+
+        content_img = Image.open(str(content_path)).convert('RGB')
+        style_img = Image.open(str(style_path)).convert('RGB')
+
+        content_img = self.transform(content_img)
+        style_img = self.transform(style_img)
+
+        c_name = os.path.splitext(os.path.basename(str(content_path)))[0]
+        s_name = os.path.splitext(os.path.basename(str(style_path)))[0]
+
+        c_mask_path = os.path.join(self.seg_dir, f'{c_name}.png')
+        s_mask_path = os.path.join(self.seg_dir, f'{s_name}.png')
+        return content_img, content_img, c_name, s_name, c_mask_path, c_mask_path
+
+    def __len__(self):
+        return len(self.content_names)
+
+    def name(self):
+        return 'IdentityDataset'
 
 
 class FmtDataset(data.Dataset):
