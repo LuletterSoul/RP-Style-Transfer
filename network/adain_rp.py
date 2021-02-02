@@ -350,14 +350,16 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
             content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_dec0(stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
+            fusion_stylized = []
             if i < self.stylized_layers-1:  # control stylization layers
                 # do multiscale stylization
                 if use_mask:
-                    stylized = self.do_mask_stylized(
+                    fusion_stylized = self.do_mask_stylized(
                         content_feat, style_feat, c_mask_path, s_mask_path)
                 else:
-                    stylized = AdaIN(stylized, style_feat)
-            stylized = getattr(self, f'rp_dec{i+1}')(stylized)
+                    fusion_stylized = AdaIN(stylized, style_feat)
+            stylized = getattr(
+                self, f'rp_dec{i+1}')(stylized + fusion_stylized)
         return stylized
 
     def encode_rp_intermediate(self, input):
@@ -435,6 +437,7 @@ class LDMSAdaINRPNet2(LDMSAdaINRPNet):
 
 class LDMSAdaINRPNet3(LDMSAdaINRPNet2):
     """use two encoders to extract different level features.
+       feature transformation is built on element-wise sum.
 
     Args:
         MultiScaleAdaINRPNet ([type]): [description]
@@ -493,6 +496,104 @@ class LDMSAdaINRPNet3(LDMSAdaINRPNet2):
         else:
             setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
                 hidden_dim, 3, 3, 1, 1, inception_num=self.inception_num))
+
+    def encode_rp_intermediate(self, input):
+        fine_feats = [input]
+        coarse_feats = [input]
+        fusion_feats = []
+        for i in range(self.layer_num):
+            rp_enc_small_revf_feat = getattr(
+                self, f'rp_enc{i}_small_revf')(fine_feats[-1])
+            rp_enc_big_revf_feat = getattr(
+                self, f'rp_enc{i}_big_revf')(coarse_feats[-1])
+            fine_feats.append(rp_enc_small_revf_feat)
+            coarse_feats.append(rp_enc_big_revf_feat)
+
+            size = rp_enc_small_revf_feat.size()[2:]
+            rp_enc_big_revf_feat = nn.functional.interpolate(
+                rp_enc_big_revf_feat, size)
+            fusion_feats.append(
+                torch.cat([rp_enc_small_revf_feat, rp_enc_big_revf_feat], dim=1))
+
+        return fusion_feats
+
+
+class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
+    """use two encoders to extract different level features.
+       feature transformation is built on channel-wise concatenation.
+
+    Args:
+        MultiScaleAdaINRPNet ([type]): [description]
+    """
+
+    def __init__(self, config, vgg_encoder) -> None:
+        super().__init__(config, vgg_encoder)
+
+    def build_encoders(self):
+
+        hidden_dim = self.hidden_dim
+
+        setattr(self, 'rp_enc0_small_revf', Conv2dBlock(
+            3, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+        setattr(self, 'rp_enc0_big_revf', nn.Sequential(
+            nn.Conv2d(3, hidden_dim, (1, 1)), nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+            nn.ReLU(),  # relu1-1
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+            nn.ReLU(),  # relu1-2
+            nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+            nn.ReflectionPad2d((1, 1, 1, 1))))
+
+        for i in range(self.layer_num-1):
+            setattr(self, f'rp_enc{i+1}_small_revf', Conv2dBlock(hidden_dim,
+                                                                 hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            setattr(self, f'rp_enc{i+1}_big_revf', nn.Sequential(
+                nn.Conv2d(hidden_dim, hidden_dim, (1, 1)
+                          ), nn.ReflectionPad2d((1, 1, 1, 1)),
+                nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+                nn.ReLU(),  # relu1-1
+                nn.ReflectionPad2d((1, 1, 1, 1)),
+                nn.Conv2d(hidden_dim, hidden_dim, (3, 3)),
+                nn.ReLU(),  # relu1-2
+                nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+                nn.ReflectionPad2d((1, 1, 1, 1))))
+        self.encoder_out_dim = hidden_dim
+
+    def build_decoders(self):
+        hidden_dim = self.encoder_out_dim
+        for i in range(self.layer_num-1):
+            if i < self.stylized_layers - 1:
+                setattr(self, f'rp_dec{i}', Conv2dBlock(
+                    hidden_dim * 4, hidden_dim * 2, 3, 1, 1, inception_num=self.inception_num))
+            elif i == self.stylized_layers - 1:
+                setattr(self, f'rp_dec{i}', Conv2dBlock(
+                    hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+            else:
+                setattr(self, f'rp_dec{i}', Conv2dBlock(
+                    hidden_dim, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+
+        if self.stylized_layers >= self.layer_num:
+            setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
+                hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
+        else:
+            setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
+                hidden_dim, 3, 3, 1, 1, inception_num=self.inception_num))
+
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        # stylized = AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.do_mask_stylized(
+            content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.rp_decoder[0](stylized)
+        for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
+            if use_mask:
+                fusion_stylized = self.do_mask_stylized(
+                    content_feat, style_feat, c_mask_path, s_mask_path)
+            else:
+                fusion_stylized = AdaIN(stylized, style_feat)
+            stylized = self.rp_decoder[i +
+                                       1](torch.cat([stylized, fusion_stylized], dim=1))
+        return stylized
 
     def encode_rp_intermediate(self, input):
         fine_feats = [input]
