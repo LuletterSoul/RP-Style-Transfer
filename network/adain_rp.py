@@ -562,20 +562,23 @@ class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
 
     def build_decoders(self):
         hidden_dim = self.encoder_out_dim
-        for i in range(self.layer_num-1):
+        addition = 0
+        for i in range(self.layer_num-1):  # 0,1,2,3
             if i < self.stylized_layers - 1:
                 setattr(self, f'rp_dec{i}', Conv2dBlock(
-                    hidden_dim * 4, hidden_dim * 2, 3, 1, 1, inception_num=self.inception_num))
+                    addition + hidden_dim * 2, hidden_dim * 2, 3, 1, 1, inception_num=self.inception_num))
+                addition = hidden_dim * 2
             elif i == self.stylized_layers - 1:
                 setattr(self, f'rp_dec{i}', Conv2dBlock(
-                    hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+                    addition + hidden_dim * 2, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+                addition = hidden_dim * 2
             else:
                 setattr(self, f'rp_dec{i}', Conv2dBlock(
                     hidden_dim, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
 
         if self.stylized_layers >= self.layer_num:
             setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
-                hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
+                addition + hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
         else:
             setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
                 hidden_dim, 3, 3, 1, 1, inception_num=self.inception_num))
@@ -584,15 +587,18 @@ class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
         # stylized = AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.do_mask_stylized(
             content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else AdaIN(content_feats[-1], style_feats[-1])
-        stylized = self.rp_decoder[0](stylized)
+        stylized = getattr(
+            self, f'rp_dec0')(stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
             if use_mask:
-                fusion_stylized = self.do_mask_stylized(
+                prefix_stylized = self.do_mask_stylized(
                     content_feat, style_feat, c_mask_path, s_mask_path)
             else:
-                fusion_stylized = AdaIN(stylized, style_feat)
-            stylized = self.rp_decoder[i +
-                                       1](torch.cat([stylized, fusion_stylized], dim=1))
+                prefix_stylized = AdaIN(stylized, style_feat)
+            # channel-wise concatenation
+            fusion_stylized = torch.cat([stylized, prefix_stylized], dim=1)
+            stylized = getattr(
+                self, f'rp_dec{i+1}')(fusion_stylized)
         return stylized
 
     def encode_rp_intermediate(self, input):

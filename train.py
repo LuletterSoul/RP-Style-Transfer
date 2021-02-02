@@ -105,6 +105,8 @@ elif opt['network'] == 'ld_adain2':
     network = net.LDMSAdaINRPNet2(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain3':
     network = net.LDMSAdaINRPNet3(opt, vgg_relu4_1)
+elif opt['network'] == 'ld_adain4':
+    network = net.LDMSAdaINRPNet4(opt, vgg_relu4_1)
 elif opt['network'] == 'dynamic_sanet':
     network = net.AdaptiveSAModel(opt, vgg, opt['start_iter'], opt['img_size'])
 elif opt['network'] == 'sanet':
