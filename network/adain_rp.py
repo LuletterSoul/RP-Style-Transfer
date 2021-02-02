@@ -204,18 +204,25 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
     #     return stylized
 
     def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
-        stylized = AdaIN(content_feats[-1], style_feats[-1])
+        # stylized = AdaIN(content_feats[-1], style_feats[-1])
+        stylized = self.do_mask_stylized(
+            content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_decoder[0](stylized)
         for i, (content_feat, style_feat) in enumerate(list(zip(content_feats[:-1], style_feats[:-1]))[::-1]):
             if use_mask:
-                fusion_stylized = []
-                for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
-                    fusion_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
-                        0), c_mask_path[bid], s_mask_path[bid]))
-                fusion_stylized = torch.cat(fusion_stylized, dim=0)
+                fusion_stylized = self.do_mask_stylized(
+                    content_feat, style_feat, c_mask_path, s_mask_path)
             else:
-                fusion_stylized = AdaIN(content_feat, style_feat)
+                fusion_stylized = AdaIN(stylized, style_feat)
             stylized = self.rp_decoder[i+1](stylized + fusion_stylized)
+        return stylized
+
+    def do_mask_stylized(self, content_feat, style_feat, c_mask_path, s_mask_path):
+        mask_stylized = []
+        for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
+            mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
+                0), c_mask_path[bid], s_mask_path[bid]))
+        stylized = torch.cat(mask_stylized, dim=0)
         return stylized
 
     def forward(self, content, style, alpha=1.0):
@@ -351,14 +358,6 @@ class LDMSAdaINRPNet(MultiScaleAdaINRPNet):
                 else:
                     stylized = AdaIN(stylized, style_feat)
             stylized = getattr(self, f'rp_dec{i+1}')(stylized)
-        return stylized
-
-    def do_mask_stylized(self, content_feat, style_feat, c_mask_path, s_mask_path):
-        mask_stylized = []
-        for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
-            mask_stylized.append(AdaINSeg(cf.unsqueeze(0), sf.unsqueeze(
-                0), c_mask_path[bid], s_mask_path[bid]))
-        stylized = torch.cat(mask_stylized, dim=0)
         return stylized
 
     def encode_rp_intermediate(self, input):
