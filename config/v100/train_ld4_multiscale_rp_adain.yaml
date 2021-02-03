@@ -2,7 +2,7 @@
 snapshot_save_iter: 10000    # How often do you want to save trained models
 image_save_iter: 1
 log_iter: 1                 # How often do you want to log the training stats
-test_iter: 10000
+test_iter: 5000
 
 # optimization options
 max_iter: 1000000             # maximum number of training iterations
@@ -37,7 +37,7 @@ spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-stylized_layers: 5
+stylized_layers: 1
 
 
 # segmentation options
@@ -57,7 +57,7 @@ style_dir: /home/jsy/datasets/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
 checkpoint_path: output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim64_cw1_sw1/checkpoints/55000.pth
-output: output/0131_ld3_lr-4_hiddim32_s5
+output: output/0202_ld4_lr-4_hiddim32_s1
 resume: False
 use_mask: True
 

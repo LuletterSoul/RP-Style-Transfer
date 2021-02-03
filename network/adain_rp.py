@@ -1,4 +1,4 @@
-from torch import stack
+from torch import add, stack
 from .base import *
 from .base import adaptive_instance_normalization as AdaIN
 from .base import adaptive_instance_normalization_with_segment as AdaINSeg
@@ -204,7 +204,6 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
     #     return stylized
 
     def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
-        # stylized = AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.do_mask_stylized(
             content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else AdaIN(content_feats[-1], style_feats[-1])
         stylized = self.rp_decoder[0](stylized)
@@ -213,7 +212,7 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
                 fusion_stylized = self.do_mask_stylized(
                     content_feat, style_feat, c_mask_path, s_mask_path)
             else:
-                fusion_stylized = AdaIN(stylized, style_feat)
+                fusion_stylized = AdaIN(content_feat, style_feat)
             stylized = self.rp_decoder[i+1](stylized + fusion_stylized)
         return stylized
 
@@ -229,8 +228,8 @@ class MultiScaleAdaINRPNet(AdaINRPNet):
         assert 0 <= alpha <= 1
         # content_feat = self.encode(content)
         content_feats = self.encode_rp_intermediate(content)
-        # style_feats = self.encode_rp_intermediate(style)
-        style_feats = self.encode_rp_intermediate(content)
+        style_feats = self.encode_rp_intermediate(style)
+        # style_feats = self.encode_rp_intermediate(content)
         # for style_feat in style_feats:
         #     print(style_feat.size())
 
@@ -563,7 +562,7 @@ class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
     def build_decoders(self):
         hidden_dim = self.encoder_out_dim
         addition = 0
-        for i in range(self.layer_num-1):  # 0,1,2,3
+        for i in range(self.layer_num):  # 0,1,2,3
             if i < self.stylized_layers - 1:
                 setattr(self, f'rp_dec{i}', Conv2dBlock(
                     addition + hidden_dim * 2, hidden_dim * 2, 3, 1, 1, inception_num=self.inception_num))
@@ -574,14 +573,20 @@ class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
                 addition = hidden_dim * 2
             else:
                 setattr(self, f'rp_dec{i}', Conv2dBlock(
-                    hidden_dim, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
+                    hidden_dim + addition, hidden_dim, 3, 1, 1, inception_num=self.inception_num))
 
-        if self.stylized_layers >= self.layer_num:
+        # layernum=5, stylized_layers = 5
+        # 0, 64 64
+        # 1, 128 64
+        # 2, 128 64
+        # 3, 128 64
+        # 4, 128 64
+        if self.stylized_layers == self.layer_num:
             setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
                 addition + hidden_dim * 2, 3, 3, 1, 1, inception_num=self.inception_num))
         else:
             setattr(self, f'rp_dec{self.layer_num-1}', Conv2dBlock(
-                hidden_dim, 3, 3, 1, 1, inception_num=self.inception_num))
+                hidden_dim + addition, 3, 3, 1, 1, inception_num=self.inception_num))
 
     def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
         # stylized = AdaIN(content_feats[-1], style_feats[-1])
@@ -594,9 +599,12 @@ class LDMSAdaINRPNet4(LDMSAdaINRPNet3):
                 prefix_stylized = self.do_mask_stylized(
                     content_feat, style_feat, c_mask_path, s_mask_path)
             else:
-                prefix_stylized = AdaIN(stylized, style_feat)
+                prefix_stylized = AdaIN(content_feat, style_feat)
             # channel-wise concatenation
             fusion_stylized = torch.cat([stylized, prefix_stylized], dim=1)
+            # print(stylized.size())
+            # print(prefix_stylized.size())
+            # print(fusion_stylized.size())
             stylized = getattr(
                 self, f'rp_dec{i+1}')(fusion_stylized)
         return stylized
