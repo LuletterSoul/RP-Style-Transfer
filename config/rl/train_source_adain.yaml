@@ -6,7 +6,7 @@ test_iter: 5000
 
 # optimization options
 max_iter: 1000000             # maximum number of training iterations
-batch_size: 2                 # batch size
+batch_size: 4                 # batch size
 weight_decay: 0.0001          # weight decay
 beta1: 0.5                    # Adam parameter
 beta2: 0.999                  # Adam parameter
@@ -31,16 +31,14 @@ inception_num: 0          # 1 * 1 Conv
 enc_stack_way: 'constant'
 k: 5
 fusion_block: 5
-network: multi_adain
+network: src
 spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
-attention: none
+attention: se
 shuffle: False
-shuffle_layers: 1
-stylized_layers: 5
-sort: False
+sort: True 
 
 # segmentation options
 
@@ -55,10 +53,10 @@ content_dir: /data/jsy/datasets/COCO2017/train2017
 style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
-checkpoint_path: output/0207_MultiAdaINRPNet_h32_shuffle_recon/checkpoints/120000
-output: output/0228_MultiAdaINRPNet_h32_shuffle1_both_test
+checkpoint_path: output/0204_MultiAdaINRPNet_h32_se_recon/checkpoints/480000
+output: output/0207_source_adain
 resume: False
-use_mask: False
+use_mask: True
 
 # dataset options 
-test_dataset: 'photoreal'
+test_dataset: 'iden_photoreal'

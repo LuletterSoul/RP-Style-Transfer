@@ -220,7 +220,7 @@ def crop_original(method_dirs):
 
 def compared_rp_net():
     content_dir = '/data/lxd/datasets/photo_data/content'
-    style_dir = '/data/lxd/datasets/photo_data/style'
+    style_dir = '/data/lxd/datasets/photo_data/content'
     # compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000/crop',
     #                         'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000/crop',
     #                         'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000/crop',
@@ -256,29 +256,64 @@ def compared_rp_net():
     #                         ]
 
     # compared_method_dirs = ['output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1/test/230000',
-    #                         # 'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/200000/crop',
-    #                         # 'output/0119_ld_lr-4_hiddim16_cw1_sw1/test/1',
     #                         'output/0126_ld3_lr-4_hiddim32_s1/test/420000',
     #                         'output/0126_430000_s2',
     #                         'output/0126_410000_s3',
     #                         'output/0126_390000_s4',
     #                         'output/0126_ld3_lr-4_hiddim32_s5/test/850000',
     #                         'output/0130_contentfusion',
+    #                         'output/0204_ld5_lr-4_hiddim32_s5/test/825000'
     #                         ]
 
-    compared_method_dirs = ['output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1/test/230000',
-                            'output/0130_contentfusion',
-                            'output/baselines/WCT2',
-                            'output/baselines/DPST',
-                            'output/baselines/LST',
-                            'output/baselines/PhotoWCT',
+    # compared_method_dirs = ['output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1/test/230000',
+    #                         'output/0130_contentfusion',
+    #                         'output/baselines/WCT2',
+    #                         'output/baselines/DPST',
+    #                         'output/baselines/LST',
+    #                         'output/baselines/PhotoWCT',
+    #                         ]
+
+    # compared_method_dirs = ['output/0131_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon/test/iden',
+    #                         'output/0204_MultiAdaINRPNet_h32_se_recon/test/iden',
+    #                         'output/0207_source_adain/test/135000',
+    #                         'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/125000',
+    #                         'output/0207_MultiAdaINRPNet_h32_sort/test/150000',
+    #                         'output/0207_MultiAdaINRPNet_h32_sort/test/995000',
+    #                         ]
+
+    # compared_method_dirs = ['output/0131_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon/test/iden',
+    #                         'output/0207_source_adain/test/135000',
+    #                         'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/125000',
+    #                         'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/50000',
+    #                         'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/35000',
+    #                         'output/0207_MultiAdaINRPNet_h32_sort/test/150000',
+    #                         'output/0207_MultiAdaINRPNet_h32_sort/test/995000',
+    #                         'output/0207_MultiAdaINRPNet_h32_sort/test/995000',
+    #                         ]
+
+    compared_method_dirs = ['output/0131_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon/test/iden',
+                            'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/125000',
+                            'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/50000',
+                            'output/0207_MultiAdaINRPNet_h32_shuffle_recon/test/35000'
                             ]
+    # compared_method_dirs = ['output/0131_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon/test/pair',
+    #                         'output/0131_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim32_recon/test/pair',
+    #                         'output/0204_MultiAdaINRPNet_h32_se_recon/test/pair',
+    #                         ]
 
     # compared_method_dirs = [
     #     'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000/crop',
     #     'output/0109_LDAdaINRPNet_lr1e-3_cw1_sw1/test/200000/crop',
     #     'output/0119_ld_lr-4_hiddim16_cw1_sw1/test/1',
     # ]
+
+    # compared_method_dirs = ['output/0119_MultiAdaINRPNet_rp5_incep0_lr1e-4_hiddim16_cw1_sw1/test/230000',
+    #                         'output/0126_ld3_lr-4_hiddim32_s1/test/420000',
+    #                         'output/0126_ld3_lr-4_hiddim32_s5/test/850000',
+    #                         'output/0130_contentfusion',
+    #                         'output/0204_ld5_lr-4_hiddim32_s5/test/825000'
+    #                         ]
+
     # compared_method_dirs = ['output/1126_RPNet_ST_lr1e-3_cw1_sw2_mw0/test/120000',
     #                     'output/0106_AdaINRPNet_lr1e-3_cw1_sw1/test/110000',
     #                     'output/0108_MultiAdaINRPNet_rp8_3incep_lr1e-4_cw1_sw1/test/340000',
@@ -287,7 +322,7 @@ def compared_rp_net():
     #                     'output/baselines/LST',
     #                     'output/baselines/PhotoWCT',
     #                     'output/baselines/WCT2']
-    output_dir = 'output/compared/0131_rpnet_sota_cmp'
+    output_dir = 'output/compared/0228_rpnet_shuffle_cmp'
     # crop_original(compared_method_dirs[0:4])
     compose_compared_imgs(content_dir, style_dir,
                           compared_method_dirs, output_dir, row=4)

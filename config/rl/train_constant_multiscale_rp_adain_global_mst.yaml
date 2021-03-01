@@ -31,16 +31,16 @@ inception_num: 0          # 1 * 1 Conv
 enc_stack_way: 'constant'
 k: 5
 fusion_block: 5
-network: multi_adain
+network: mst
 spade_block: 5
 spade: true
 spade_norm: instance
 ndf: 2
 attention: none
-shuffle: False
+shuffle: True
 shuffle_layers: 1
-stylized_layers: 5
 sort: False
+stylized_layers: 1
 
 # segmentation options
 
@@ -56,7 +56,7 @@ style_dir: /data/jsy/datasets/wikiart/wikiart
 test_dir: /data/lxd/datasets/photo_data
 seg_dir: /data/lxd/datasets/photo_data/segmentation
 checkpoint_path: output/0207_MultiAdaINRPNet_h32_shuffle_recon/checkpoints/120000
-output: output/0228_MultiAdaINRPNet_h32_shuffle1_both_test
+output: output/0301_GlobalMSTMultiAdaINRPNet_h32_l1
 resume: False
 use_mask: False
 

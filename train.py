@@ -91,7 +91,9 @@ vgg = net.vgg
 vgg.load_state_dict(torch.load(opt['vgg']))
 vgg_relu4_1 = nn.Sequential(*list(vgg.children())[:31])
 
-if opt['network'] == 'adain':
+if opt['network'] == 'src':
+    network = net.SourceNet(opt, vgg_relu4_1)
+elif opt['network'] == 'adain':
     network = net.AdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'multi_adain':
     network = net.MultiScaleAdaINRPNet(opt, vgg_relu4_1)
@@ -99,6 +101,10 @@ elif opt['network'] == 'sel_multi_adain':
     network = net.SELastMultiScaleAdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'wct':
     network = net.WCTRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'ccam':
+    network = net.CrossChannelAttentionRPNet(opt, vgg_relu4_1)
+elif opt['network'] == 'mst':
+    network = net.GlobalMSTRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain':
     network = net.LDMSAdaINRPNet(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain2':
@@ -107,6 +113,8 @@ elif opt['network'] == 'ld_adain3':
     network = net.LDMSAdaINRPNet3(opt, vgg_relu4_1)
 elif opt['network'] == 'ld_adain4':
     network = net.LDMSAdaINRPNet4(opt, vgg_relu4_1)
+elif opt['network'] == 'ld_adain5':
+    network = net.LDMSAdaINRPNet5(opt, vgg_relu4_1)
 elif opt['network'] == 'dynamic_sanet':
     network = net.AdaptiveSAModel(opt, vgg, opt['start_iter'], opt['img_size'])
 elif opt['network'] == 'sanet':

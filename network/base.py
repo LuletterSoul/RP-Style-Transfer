@@ -182,6 +182,7 @@ class Conv2dBlock(nn.Module):
                 inplanes=output_dim, planes=output_dim)
         else:
             self.attention_block = None
+        self.attention_map = None
 
     def forward(self, x):
         x = self.conv(self.pad(x))
@@ -193,6 +194,7 @@ class Conv2dBlock(nn.Module):
             x = self.activation(x)
         if self.attention_block:
             x = self.attention_block(x)
+            self.attention_map = self.attention_block.attention_map
         return x
 
 
@@ -528,10 +530,41 @@ def adaptive_instance_normalization_with_segment(content_feat, style_feat, conte
     return target_feat
 
 
-class Net(nn.Module):
-    def __init__(self, encoder, decoder):
-        super(Net, self).__init__()
-        enc_layers = list(encoder.children())
+class BaseNet(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.begin = 0
+
+    @abstractmethod
+    def test(self, content, style, iterations=0, bid=0, c_mask_path=None, s_mask_path=None):
+        pass
+
+    @abstractmethod
+    def save():
+        pass
+
+    @abstractmethod
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        pass
+
+    @abstractmethod
+    def fuse(self, content_feats, style_feats):
+        pass
+
+    @abstractmethod
+    def encode_with_intermediate(self, input):
+        pass
+
+    def save(self, save_path, iterations=0):
+        torch.save(self.state_dict(), save_path)
+
+
+class SourceNet(BaseNet):
+    def __init__(self, config, vgg_encoder):
+        super(BaseNet, self).__init__()
+        enc_layers = list(vgg_encoder.children())
+        self.config = config
+        self.begin = 0
         self.enc_1 = nn.Sequential(*enc_layers[:4])  # input -> relu1_1
         self.enc_2 = nn.Sequential(*enc_layers[4:11])  # relu1_1 -> relu2_1
         self.enc_3 = nn.Sequential(*enc_layers[11:18])  # relu2_1 -> relu3_1
@@ -544,7 +577,29 @@ class Net(nn.Module):
             for param in getattr(self, name).parameters():
                 param.requires_grad = False
 
-    # extract relu1_1, relu2_1, relu3_1, relu4_1 from input image
+    def test(self, content, style, iterations=0, bid=0, c_mask_path=None, s_mask_path=None):
+        with torch.no_grad():
+            content_feats = self.encode_with_intermediate(content)
+            style_feats = self.encode_with_intermediate(style)
+            stylized = self.decode(
+                content_feats, style_feats, self.config['use_mask'], c_mask_path, s_mask_path)
+            return stylized
+
+    def decode(self, content_feats, style_feats, use_mask=False, c_mask_path=None, s_mask_path=None):
+        t = self.do_mask_stylized(
+            content_feats[-1], style_feats[-1], c_mask_path, s_mask_path) if use_mask else adaptive_instance_normalization(content_feats[-1], style_feats[-1])
+        # t = self.fuse(content_feats, style_feats)
+        g_t = self.decoder(t)
+        return g_t
+
+    def do_mask_stylized(self, content_feat, style_feat, c_mask_path, s_mask_path):
+        mask_stylized = []
+        for bid, (cf, sf) in enumerate(zip(content_feat, style_feat)):
+            mask_stylized.append(adaptive_instance_normalization_with_segment(cf.unsqueeze(0), sf.unsqueeze(
+                0), c_mask_path[bid], s_mask_path[bid]))
+        stylized = torch.cat(mask_stylized, dim=0)
+        return stylized
+
     def encode_with_intermediate(self, input):
         results = [input]
         for i in range(4):
@@ -573,45 +628,22 @@ class Net(nn.Module):
 
     def forward(self, content, style, alpha=1.0):
         assert 0 <= alpha <= 1
+        content_feats = self.encode_with_intermediate(content)
         style_feats = self.encode_with_intermediate(style)
-        content_feat = self.encode(content)
-        t = AdaIN(content_feat, style_feats[-1])
-        t = alpha * t + (1 - alpha) * content_feat
 
-        g_t = self.rp_decoder(t)
+        t = adaptive_instance_normalization(content_feats[-1], style_feats[-1])
+        g_t = self.decode(content_feats, style_feats)
+
         g_t_feats = self.encode_with_intermediate(g_t)
 
         loss_c = self.calc_content_loss(g_t_feats[-1], t)
         loss_s = self.calc_style_loss(g_t_feats[0], style_feats[0])
         for i in range(1, 4):
             loss_s += self.calc_style_loss(g_t_feats[i], style_feats[i])
-        return loss_c, loss_s
-
-
-class BaseNet(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.begin = 0
-
-    @abstractmethod
-    def test(self, content, style, iterations=0):
-        pass
-
-    @abstractmethod
-    def save():
-        pass
-
-    @abstractmethod
-    def decode(self, content_feats, style_feats):
-        pass
-
-    @abstractmethod
-    def fuse(self, content_feats, style_feats):
-        pass
-
-    @abstractmethod
-    def encode_with_intermediate(self, input):
-        pass
-
-    def save(self, save_path, iterations=0):
-        torch.save(self.state_dict(), save_path)
+        total_loss = self.config['content_weight'] * \
+            loss_c + self.config['style_weight'] * loss_s
+        return {
+            'style_loss': loss_s,
+            'content_loss': loss_c,
+            'total_loss': total_loss
+        }, total_loss

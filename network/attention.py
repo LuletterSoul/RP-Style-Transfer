@@ -12,11 +12,13 @@ class SELayer(nn.Module):
             nn.Linear(channel // reduction, channel, bias=False),
             nn.Sigmoid()
         )
+        self.attention_map = None
 
     def forward(self, x):
         b, c, _, _ = x.size()
         y = self.avg_pool(x).view(b, c)
         y = self.fc(y).view(b, c, 1, 1)
+        self.attention_map = y
         return x * y.expand_as(x)
 
 
@@ -38,6 +40,7 @@ class SEBottleneck(nn.Module):
         self.se = SELayer(planes, reduction)
         self.downsample = downsample
         self.stride = stride
+        self.attention_map = None
 
     def forward(self, x):
         residual = x
@@ -59,7 +62,7 @@ class SEBottleneck(nn.Module):
 
         out += residual
         out = self.relu(out)
-
+        self.attention_map = self.se.attention_map
         return out
 
 
